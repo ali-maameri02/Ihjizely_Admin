@@ -1,0 +1,68 @@
+[
+    {
+      "id": 1,
+      "image": "https://media.istockphoto.com/id/104731717/fr/photo/centre-de-vill%C3%A9giature-de-luxe.jpg?s=1024x1024&w=is&k=20&c=Bw_mTlJVRS5iBYR1G3_dyGvD0O1lZHIVEDbxSJNKG_M=",
+      "unitName": "El Kheyam",
+      "owner": "Ali Maamri",
+      "location": "Al-Akhdar Street, Benghazi",
+      "subscriptionStatus": true,
+      "premiumSubscription": true,
+      "registrationDate": "5/27/15",
+      "type": "Resort"
+    },
+    {
+      "id": 2,
+      "image": " https://media.istockphoto.com/id/104731717/fr/photo/centre-de-vill%C3%A9giature-de-luxe.jpg?s=1024x1024&w=is&k=20&c=Bw_mTlJVRS5iBYR1G3_dyGvD0O1lZHIVEDbxSJNKG_M=",
+      "unitName": "El Kheyam",
+      "owner": "Chemouri Abd EL Motalib",
+      "location": "Al-Akhdar Street, Benghazi",
+      "subscriptionStatus": true,
+      "premiumSubscription": true,
+      "registrationDate": "5/19/12",
+      "type": "Chalet"
+    },
+    {
+      "id": 3,
+      "image": " https://media.istockphoto.com/id/104731717/fr/photo/centre-de-vill%C3%A9giature-de-luxe.jpg?s=1024x1024&w=is&k=20&c=Bw_mTlJVRS5iBYR1G3_dyGvD0O1lZHIVEDbxSJNKG_M=",
+      "unitName": "El Kheyam",
+      "owner": "Ali Maamri",
+      "location": "Al-Akhdar Street, Benghazi",
+      "subscriptionStatus": true,
+      "premiumSubscription": false,
+      "registrationDate": "5/27/15",
+      "type": "Event Hall Large"
+    },
+    {
+      "id": 4,
+      "image": " https://media.istockphoto.com/id/104731717/fr/photo/centre-de-vill%C3%A9giature-de-luxe.jpg?s=1024x1024&w=is&k=20&c=Bw_mTlJVRS5iBYR1G3_dyGvD0O1lZHIVEDbxSJNKG_M=",
+      "unitName": "El Kheyam",
+      "owner": "Ahmed Elhamdi",
+      "location": "Al-Akhdar Street, Benghazi",
+      "subscriptionStatus": true,
+      "premiumSubscription": false,
+      "registrationDate": "5/27/15",
+      "type": "Resort"
+    },
+    {
+      "id": 5,
+      "image": " https://media.istockphoto.com/id/104731717/fr/photo/centre-de-vill%C3%A9giature-de-luxe.jpg?s=1024x1024&w=is&k=20&c=Bw_mTlJVRS5iBYR1G3_dyGvD0O1lZHIVEDbxSJNKG_M=",
+      "unitName": "El Kheyam",
+      "owner": "Ali Maamri",
+      "location": "Al-Akhdar Street, Benghazi",
+      "subscriptionStatus": true,
+      "premiumSubscription": false,
+      "registrationDate": "9/27/15",
+      "type": "Hotel Rooms"
+    },
+    {
+      "id": 6,
+      "image": " https://media.istockphoto.com/id/104731717/fr/photo/centre-de-vill%C3%A9giature-de-luxe.jpg?s=1024x1024&w=is&k=20&c=Bw_mTlJVRS5iBYR1G3_dyGvD0O1lZHIVEDbxSJNKG_M=",
+      "unitName": "El Kheyam",
+      "owner": "Ali Maamri",
+      "location": "Al-Akhdar Street, Benghazi",
+      "subscriptionStatus": true,
+      "premiumSubscription": false,
+      "registrationDate": "10/27/15",
+      "type": "Chalet"
+    }
+  ]
