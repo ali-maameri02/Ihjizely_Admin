@@ -1,4 +1,3 @@
-// unitsService.tsx
 import axios from 'axios';
 import { authService } from './auth';
 
@@ -6,7 +5,7 @@ export type PropertyType = 'Residence' | 'Hall';
 export type PropertyStatus = 'Pending' | 'Accepted' | 'Refused';
 
 export type Property = {
-    id: string; // Changed to string to match UUID format
+    id: string;
     title: string;
     description: string;
     location: {
@@ -36,7 +35,7 @@ export type Property = {
 };
 
 export type UnitRow = {
-  id: string; // Changed to string to match UUID format
+  id: string;
   type: string;
   unitName: string;
   image: string;
@@ -119,7 +118,7 @@ export const unitsService = {
         }
     },
 
-    async getUnitById(id: string): Promise<Property> {  // Changed return type to Property
+    async getUnitById(id: string): Promise<Property> {
         try {
             const token = authService.getAuthToken();
             if (!token) throw new Error('No authentication token found');
@@ -134,30 +133,43 @@ export const unitsService = {
                 }
             );
             
-            return response.data;  // Return the raw Property data, don't transform it
+            return response.data;
         } catch (error) {
             throw this.handleApiError(error, 'Failed to fetch unit');
         }
     },
+
     async getUnitsByType(type: string): Promise<UnitRow[]> {
         try {
           const token = authService.getAuthToken();
           if (!token) throw new Error('No authentication token found');
           
-          // First get all units
-          const allUnits = await this.getAllUnits();
+          const isMainType = this.getPropertyTypes().some(t => t.type === type);
           
-          // Then filter by type
-          return allUnits.filter(unit => 
-            unit.type.toLowerCase() === type.toLowerCase() || 
-            unit.propertyType.toLowerCase() === type.toLowerCase()
-          );
+          if (isMainType) {
+            const allUnits = await this.getAllUnits();
+            return allUnits.filter(unit => unit.propertyType === type);
+          } else {
+            const mainType = this.getPropertyTypes().find(t => 
+              t.subtypes.includes(type)
+            )?.type;
+            
+            if (!mainType) {
+              throw new Error(`Invalid property type: ${type}`);
+            }
+            
+            const mainTypeUnits = await this.getAllUnits();
+            return mainTypeUnits.filter(unit => 
+              unit.type === this.getSubtypeLabel(type) || 
+              unit.propertyType === type
+            );
+          }
         } catch (error) {
           throw this.handleApiError(error, 'Failed to fetch units by type');
         }
-      },
+    },
 
-      async updatePropertyStatus(
+    async updatePropertyStatus(
         id: string, 
         status: PropertyStatus
     ): Promise<void> {
@@ -167,7 +179,7 @@ export const unitsService = {
             
             await axios.patch(
                 `${import.meta.env.VITE_API_URL}/AllProperties/${id}/status`,
-                `"${status}"`, // Send just the status string wrapped in quotes as JSON
+                `"${status}"`,
                 {
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -209,12 +221,12 @@ export const unitsService = {
             throw this.handleApiError(error, 'Failed to update property');
         }
     },
+
     async deleteUnit(id: string): Promise<void> {
         try {
             const token = authService.getAuthToken();
             if (!token) throw new Error('No authentication token found');
             
-            // Validate the ID is in UUID format
             if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
                 throw new Error('Invalid ID format. Expected UUID.');
             }
@@ -238,7 +250,7 @@ export const unitsService = {
             type: this.getPropertyTypeLabel(property.type),
             unitName: property.title,
             image: property.images?.[0]?.url || '',
-            owner: 'Business Owner', // You might want to get this from property details
+            owner: 'Business Owner',
             location: `${property.location.city}, ${property.location.country}`,
             status: property.status || 'Pending',
             subscriptionStatus: property.status === 'Accepted',

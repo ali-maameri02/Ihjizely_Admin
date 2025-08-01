@@ -274,13 +274,19 @@ export default function UserTable({ data }: { data: UserRow[] }) {
 
 // Unit-specific table
 // UnitTable component in data-table.tsx
+
 export function UnitTable({ data }: { data: UnitRow[] }) {
   const [filterType, setFilterType] = React.useState<string>("");
   const [filterSubtype, setFilterSubtype] = React.useState<string>("");
+  const [activeTab, setActiveTab] = React.useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [internalData, setInternalData] = React.useState<UnitRow[]>(data);
   const [loading, setLoading] = React.useState(false);
-  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null); // Add this state
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [pagination, setPagination] = React.useState({
+    pageIndex: 0,
+    pageSize: 10,
+  });
 
   const propertyTypes = unitsService.getPropertyTypes();
 
@@ -288,23 +294,51 @@ export function UnitTable({ data }: { data: UnitRow[] }) {
     setInternalData(data);
   }, [data]);
 
-  // Fetch filtered data when subtype changes
   React.useEffect(() => {
-    if (filterSubtype) {
-      const fetchFilteredData = async () => {
-        try {
-          setLoading(true);
-          const filteredData = await unitsService.getUnitsByType(filterSubtype);
-          setInternalData(filteredData);
-        } catch (error) {
-          toast.error(error instanceof Error ? error.message : 'Failed to filter units');
-        } finally {
-          setLoading(false);
+    const fetchFilteredData = async () => {
+      try {
+        setLoading(true);
+        let filteredData: UnitRow[] = [];
+
+        if (filterSubtype) {
+          filteredData = await unitsService.getUnitsByType(filterSubtype);
+        } else if (filterType) {
+          filteredData = await unitsService.getUnitsByType(filterType);
+        } else {
+          switch (activeTab) {
+            case 'pending':
+              filteredData = await unitsService.getUnitsByStatus('Pending');
+              break;
+            case 'approved':
+              filteredData = await unitsService.getUnitsByStatus('Accepted');
+              break;
+            case 'rejected':
+              filteredData = await unitsService.getUnitsByStatus('Refused');
+              break;
+            default:
+              filteredData = await unitsService.getAllUnits();
+              break;
+          }
         }
-      };
-      fetchFilteredData();
-    }
-  }, [filterSubtype]);
+
+        if (filterType && !filterSubtype) {
+          filteredData = filteredData.filter(item => 
+            item.type === filterType || item.type === filterType
+          );
+        }
+
+        setInternalData(filteredData);
+        setPagination(prev => ({ ...prev, pageIndex: 0 }));
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to filter units');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFilteredData();
+  }, [filterSubtype, filterType, activeTab]);
+
   const handleViewDetails = async (unitId: string) => {
     try {
       const property = await unitsService.getUnitById(unitId);
@@ -314,97 +348,66 @@ export function UnitTable({ data }: { data: UnitRow[] }) {
     }
   };
 
+  const handleStatusUpdate = async (
+    propertyId: string, 
+    status: 'Accepted' | 'Refused' | 'Pending'
+  ) => {
+    try {
+      setLoading(true);
+      
+      setInternalData(prev => prev.map(item => 
+        item.id.toString() === propertyId 
+          ? { ...item, status, subscriptionStatus: status === 'Accepted' }
+          : item
+      ));
 
-  const sensors = useSensors(
-    useSensor(MouseSensor, {}),
-    useSensor(TouchSensor, {}),
-    useSensor(KeyboardSensor, {})
-  );
-
-  const dataIds = React.useMemo(
-    () => internalData.map((item) => item.id.toString()),
-    [internalData]
-  );
-
-  // Client-side filtering for type only
-  const filteredData = React.useMemo(() => {
-    if (!filterType) return internalData;
-    return internalData.filter(item => item.type === filterType);
-  }, [internalData, filterType]);
-
-// Fix the handleStatusUpdate function (line ~339)
-const handleStatusUpdate = async (
-  propertyId: string, 
-  status: 'Accepted' | 'Refused' | 'Pending',
-  propertyType: string // Keep this if needed for UI updates
-) => {
-  try {
-    setLoading(true);
-    
-    // Optimistic UI update
-    setInternalData(prev => prev.map(item => 
-      item.id.toString() === propertyId 
-        ? { ...item, status, subscriptionStatus: status === 'Accepted' }
-        : item
-    ));
-
-    await unitsService.updatePropertyStatus(propertyId, status);
-    
-    toast.success(`تم ${status === 'Accepted' ? 'قبول' : 'رفض'} الوحدة بنجاح`);
-    
-    // Full data refresh if filtered
-    if (filterSubtype || filterType) {
-      const refreshType = filterSubtype || filterType;
-      const refreshedData = await unitsService.getUnitsByType(refreshType);
-      setInternalData(refreshedData);
+      await unitsService.updatePropertyStatus(propertyId, status);
+      
+      toast.success(`تم ${status === 'Accepted' ? 'قبول' : 'رفض'} الوحدة بنجاح`);
+      
+      const refreshData = await unitsService.getAllUnits();
+      setInternalData(refreshData);
+    } catch (error) {
+      setInternalData(prev => prev.map(item => 
+        item.id.toString() === propertyId 
+          ? { ...item, status: 'Pending', subscriptionStatus: false }
+          : item
+      ));
+      
+      toast.error(
+        error instanceof Error 
+          ? error.message 
+          : `حدث خطأ أثناء ${status === 'Accepted' ? 'القبول' : 'الرفض'}`
+      );
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    // Revert optimistic update on error
-    setInternalData(prev => prev.map(item => 
-      item.id.toString() === propertyId 
-        ? { ...item, status: 'Pending', subscriptionStatus: false }
-        : item
-    ));
-    
-    console.error('Status update error:', error);
-    toast.error(
-      error instanceof Error 
-        ? error.message 
-        : `حدث خطأ أثناء ${status === 'Accepted' ? 'القبول' : 'الرفض'}`
-    );
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-
- // Fix the handleDeleteUnit function (remove unused unitType parameter)
-const handleDeleteUnit = async (unitId: string, unitName: string) => {
-  try {
-    setLoading(true);
-    
-    // Optimistic update - remove the item immediately
-    setInternalData(prev => prev.filter(item => item.id.toString() !== unitId));
-    
-    await unitsService.deleteUnit(unitId);
-    
-    toast.success(`تم حذف الوحدة "${unitName}" بنجاح`);
-  } catch (error) {
-    // Revert optimistic update on error
-    setInternalData(data); // Refresh from original data
-    
-    toast.error(
-      error instanceof Error 
-        ? error.message 
-        : 'حدث خطأ أثناء حذف الوحدة'
-    );
-  } finally {
-    setLoading(false);
-  }
-};
+  const handleDeleteUnit = async (unitId: string, unitName: string) => {
+    try {
+      setLoading(true);
+      
+      setInternalData(prev => prev.filter(item => item.id.toString() !== unitId));
+      
+      await unitsService.deleteUnit(unitId);
+      
+      toast.success(`تم حذف الوحدة "${unitName}" بنجاح`);
+    } catch (error) {
+      setInternalData(data);
+      
+      toast.error(
+        error instanceof Error 
+          ? error.message 
+          : 'حدث خطأ أثناء حذف الوحدة'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const table = useReactTable({
-    data: filteredData,
+    data: internalData,
     columns: [
       {
         accessorKey: "unitName",
@@ -435,6 +438,21 @@ const handleDeleteUnit = async (unitId: string, unitName: string) => {
         cell: ({ row }) => <span>{row.original.location}</span>,
       },
       {
+        accessorKey: "status",
+        header: "الحالة",
+        cell: ({ row }) => (
+          <Badge 
+            variant={
+              row.original.status === 'Accepted' ? 'default' : 
+              row.original.status === 'Refused' ? 'destructive' : 'secondary'
+            }
+          >
+            {row.original.status === 'Accepted' ? 'مقبول' : 
+             row.original.status === 'Refused' ? 'مرفوض' : 'قيد الانتظار'}
+          </Badge>
+        ),
+      },
+      {
         accessorKey: "premiumSubscription",
         header: "اشتراك مميز",
         cell: ({ row }) => (
@@ -454,11 +472,6 @@ const handleDeleteUnit = async (unitId: string, unitName: string) => {
         cell: ({ row }) => <span>{row.original.registrationDate}</span>,
       },
       {
-        accessorKey: "type",
-        header: () => null,
-        cell: () => null,
-      },
-      {
         id: "actions",
         header: "الإجراءات",
         cell: ({ row }) => {
@@ -467,22 +480,20 @@ const handleDeleteUnit = async (unitId: string, unitName: string) => {
           
           return (
             <div className="flex items-center gap-2">
-<Button
-  variant="ghost"
-  size="icon"
-  onClick={() => handleViewDetails(row.original.id.toString())}  // Use the correct handler
->
-  <InfoIcon className="w-4 h-4 text-blue-500" />
-</Button>    
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleViewDetails(row.original.id.toString())}
+              >
+                <InfoIcon className="w-4 h-4 text-blue-500" />
+              </Button>    
               <Button
                 variant={isAccepted ? "default" : "ghost"}
                 size="icon"
-                // For the accept button:
-onClick={() => handleStatusUpdate(
-  row.original.id.toString(), 
-  'Accepted',
-  row.original.type
-)}
+                onClick={() => handleStatusUpdate(
+                  row.original.id.toString(), 
+                  'Accepted'
+                )}
                 disabled={isAccepted}
               >
                 <IconThumbUpFilled className={`w-4 h-4 ${isAccepted ? 'text-white' : 'text-green-500'}`} />
@@ -493,10 +504,8 @@ onClick={() => handleStatusUpdate(
                 size="icon"
                 onClick={() => handleStatusUpdate(
                   row.original.id.toString(), 
-                  'Refused',
-                  row.original.type
+                  'Refused'
                 )}
-                
                 disabled={isRefused}
               >
                 <IconThumbDownFilled className={`w-4 h-4 ${isRefused ? 'text-white' : 'text-red-500'}`} />
@@ -505,46 +514,60 @@ onClick={() => handleStatusUpdate(
               <Button
                 variant="ghost"
                 size="icon"
-           // For the delete button:
-onClick={() => handleDeleteUnit(
-  row.original.id.toString(),
-  row.original.unitName
-)}
+                onClick={() => handleDeleteUnit(
+                  row.original.id.toString(),
+                  row.original.unitName
+                )}
                 disabled={loading}
               >
                 <IconTrash className="w-4 h-4 text-red-500" />
               </Button>
-              <PropertyDetailsModal 
-        property={selectedProperty}
-        onClose={() => setSelectedProperty(null)}
-      />
             </div>
           );
         }
       }
     ],
-    state: { sorting },
+    state: { 
+      sorting,
+      pagination,
+    },
     onSortingChange: setSorting,
+    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (active && over && active.id !== over.id) {
-      setInternalData((prevData) => {
-        const oldIndex = dataIds.indexOf(active.id.toString());
-        const newIndex = dataIds.indexOf(over.id.toString());
-        return arrayMove(prevData, oldIndex, newIndex);
-      });
-    }
-  };
-
   return (
     <div>
-      {/* Type Filter Dropdown */}
+      <div className="flex border-b mb-4">
+        <button
+          className={`px-4 py-2 font-medium ${activeTab === 'all' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
+          onClick={() => setActiveTab('all')}
+        >
+          الكل
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${activeTab === 'pending' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
+          onClick={() => setActiveTab('pending')}
+        >
+          قيد الانتظار
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${activeTab === 'approved' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
+          onClick={() => setActiveTab('approved')}
+        >
+          المقبولة
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${activeTab === 'rejected' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
+          onClick={() => setActiveTab('rejected')}
+        >
+          المرفوضة
+        </button>
+      </div>
+
       <div className="mb-4 grid grid-cols-2 gap-4">
         <div>
           <label htmlFor="type-filter" className="block text-sm font-medium text-gray-700 mb-1 text-right">
@@ -556,10 +579,6 @@ onClick={() => handleDeleteUnit(
             onChange={(e) => {
               setFilterType(e.target.value);
               setFilterSubtype("");
-              // Reset to all data when changing main type
-              if (!e.target.value) {
-                setInternalData(data);
-              }
             }}
             className="border rounded px-3 py-1 w-full text-right"
             disabled={loading}
@@ -573,7 +592,6 @@ onClick={() => handleDeleteUnit(
           </select>
         </div>
 
-        {/* Subtype Filter Dropdown */}
         <div>
           <label htmlFor="subtype-filter" className="block text-sm font-medium text-gray-700 mb-1 text-right">
             النوع الفرعي
@@ -604,62 +622,100 @@ onClick={() => handleDeleteUnit(
       )}
 
       {!loading && (
-        <DndContext
-          collisionDetection={closestCenter}
-          modifiers={[restrictToVerticalAxis]}
-          onDragEnd={handleDragEnd}
-          sensors={sensors}
-        >
-         <Table>
-  <TableHeader>
-    {table.getHeaderGroups().map((headerGroup) => (
-      <TableRow key={headerGroup.id}>
-        {headerGroup.headers.map((header) => (
-          <TableHead key={header.id}>
-            {header.isPlaceholder
-              ? null
-              : flexRender(
-                  header.column.columnDef.header,
-                  header.getContext()
-                )}
-          </TableHead>
-        ))}
-      </TableRow>
-    ))}
-  </TableHeader>
-  <TableBody>
-    <SortableContext
-      items={dataIds}
-      strategy={verticalListSortingStrategy}
-    >
-      {table.getRowModel().rows.length > 0 ? (
-        table.getRowModel().rows.map((row) => (
-          <TableRow
-            key={row.id}
-            data-state={row.getIsSelected() && "selected"}
-            className="relative z-0"
-          >
-            {row.getVisibleCells().map((cell) => (
-              <TableCell key={cell.id}>
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </TableCell>
-            ))}
-          </TableRow>
-        ))
-      ) : (
-        <TableRow>
-        <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">
-          {filterSubtype 
-            ? `لا توجد وحدات من نوع ${unitsService.getSubtypeLabel(filterSubtype)}`
-            : "لا توجد بيانات متاحة"}
-        </TableCell>
-      </TableRow>
+        <>
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length > 0 ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">
+                    {filterSubtype 
+                      ? `لا توجد وحدات من نوع ${unitsService.getSubtypeLabel(filterSubtype)}`
+                      : "لا توجد بيانات متاحة"}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+
+          <div className="flex items-center justify-between px-2 mt-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                السابق
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                التالي
+              </Button>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1">
+                <div>الصفحة</div>
+                <strong>
+                  {table.getState().pagination.pageIndex + 1} من {table.getPageCount()}
+                </strong>
+              </span>
+              
+              <select
+                value={table.getState().pagination.pageSize}
+                onChange={e => {
+                  table.setPageSize(Number(e.target.value))
+                }}
+                className="border rounded px-2 py-1"
+              >
+                {[10, 20, 30, 40, 50].map(pageSize => (
+                  <option key={pageSize} value={pageSize}>
+                    عرض {pageSize}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </>
       )}
-    </SortableContext>
-  </TableBody>
-</Table>
-        </DndContext>
-      )}
+
+      <PropertyDetailsModal 
+        property={selectedProperty}
+        onClose={() => setSelectedProperty(null)}
+      />
     </div>
   );
 }
