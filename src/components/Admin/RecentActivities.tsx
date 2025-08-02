@@ -7,6 +7,8 @@ import { reservationService, Booking } from "../../API/ReservationService";
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { unitsService } from "../../API/UnitsService";
+import { Link } from "react-router-dom";
+import { Button } from "../ui/button";
 
 export default function RecentActivities() {
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
@@ -136,6 +138,11 @@ export default function RecentActivities() {
               </div>
             </Card>
           ))}
+          <Link to={'/Admin/reservations'} className="w-full flex justify-center ">
+          <Button className="bg-[#AD46FF] cursor-pointer" >
+          راجع  جميع الحجوزات
+          </Button>
+          </Link>
         </div>
 
         <div className="grid w-full grid-flow-col grid-rows-2 gap-4 justify-items-end-safe justify-end">

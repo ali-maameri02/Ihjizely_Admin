@@ -10,6 +10,7 @@ import {
   IconLogout2,
   IconReservedLine,
   IconCalendarClock,
+  IconReport,
 } from "@tabler/icons-react";
 import logo from "../assets/ihjzlyapplogo.png";
 import { cn } from "@/lib/utils";
@@ -64,6 +65,11 @@ const data = {
       title: "إدارة المحافظ",
       url: "/Admin/wallets",
       icon: IconCurrencyDollar,
+    },
+    {
+      title: "إدارة التقارير",
+      url: "/Admin/reports",
+      icon: IconReport,
     },
     {
       title: "إعدادات",

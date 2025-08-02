@@ -106,6 +106,14 @@ function App() {
           }
         />
         <Route
+          path="/Admin/reports"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <WalletManagement />
+            </Suspense>
+          }
+        />
+        <Route
           path="/Admin/subscription-plans"
           element={
             <Suspense fallback={<PageLoader />}>
