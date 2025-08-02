@@ -8,6 +8,8 @@ import {
   IconSettings,
   IconMoon,
   IconLogout2,
+  IconReservedLine,
+  IconCalendarClock,
 } from "@tabler/icons-react";
 import logo from "../assets/ihjzlyapplogo.png";
 import { cn } from "@/lib/utils";
@@ -24,6 +26,7 @@ import {
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { DarkModeProvider } from './DarkModeContext.tsx'
 import { authService } from '@/API/auth'; // Import your auth service
+import { CalendarCheck } from "lucide-react";
 
 const data = {
   user: {
@@ -50,7 +53,7 @@ const data = {
     {
       title: "إدارة الحجوزات",
       url: "/Admin/reservations",
-      icon: IconBuilding,
+      icon: IconCalendarClock,
     },
     {
       title: "إدارة الاشتراكات",

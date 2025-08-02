@@ -8,6 +8,7 @@ import Units from "./components/Admin/Units-table";
 import Subscription from "./components/Admin/Subsecription";
 import WalletManagement from "./components/Admin/Wallet";
 import SubscriptionPlans from "./components/Admin/subscription-plans";
+import Bookings from "./components/Admin/Booking";
 
 // 🚀 Lazy Load Components
 const LoginPage = React.lazy(() => import("./components/Login"));
@@ -84,7 +85,7 @@ function App() {
           path="/Admin/reservations"
           element={
             <Suspense fallback={<PageLoader />}>
-              <Units />
+              <Bookings />
             </Suspense>
           }
         />

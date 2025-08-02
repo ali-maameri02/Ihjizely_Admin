@@ -49,6 +49,7 @@ import { Property, unitsService } from "@/API/UnitsService";
 import { useState } from "react";
 import { PropertyDetailsModal } from "./Admin/PropertyDetailsModal";
 import { subscriptionsService } from "@/API/SubscriptionsService";
+import { reservationService } from "@/API/ReservationService";
 // Define schemas
 export const userSchema = z.object({
   id: z.number(),
@@ -99,7 +100,28 @@ export const walletSchema = z.object({
   registrationDate: z.string(),
   email: z.string(),
 });
+export const bookingSchema = z.object({
+  id: z.string(),
+  clientId: z.string(),
+  name: z.string(),
+  phoneNumber: z.string(),
+  propertyId: z.string(),
+  startDate: z.string(),
+  endDate: z.string(),
+  totalPrice: z.number(),
+  currency: z.string(),
+  status: z.enum(['Pending', 'Confirmed', 'Cancelled', 'Completed']),
+  reservedAt: z.string(),
+  propertyDetails: z.object({
+    id: z.string(),
+    title: z.string(),
+    type: z.string(),
+    subtype: z.string().optional(),
+    images: z.array(z.object({ url: z.string() })).optional()
+  }).optional()
+});
 
+export type BookingRow = z.infer<typeof bookingSchema>;
 export type UserRow = z.infer<typeof userSchema>;
 export type UnitRow = z.infer<typeof unitSchema>;
 export type SubscriptionRow = z.infer<typeof subscriptionSchema>;
@@ -1019,14 +1041,276 @@ export function WalletTable({ data }: { data: WalletRow[] }) {
 
   return <DataTable data={data} columns={columns} />;
 }
+// Add to data-table.tsx
+export function BookingTable({ data }: { data: BookingRow[] }) {
+  const [internalData, setInternalData] = React.useState<BookingRow[]>(data);
+  const [loading, setLoading] = React.useState(false);
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [pagination, setPagination] = React.useState({
+    pageIndex: 0,
+    pageSize: 10,
+  });
 
+  const handleStatusUpdate = async (bookingId: string, status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed') => {
+    try {
+      setLoading(true);
+      const updatedBooking = await reservationService.updateBookingStatus(bookingId, status);
+      
+      setInternalData(prev => prev.map(booking => 
+        booking.id === bookingId ? { ...booking, status } : booking
+      ));
+      
+      toast.success(`تم تحديث حالة الحجز إلى ${getStatusText(status)}`);
+    } catch (error) {
+      toast.error('Failed to update booking status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch(status) {
+      case 'Pending': return 'قيد الانتظار';
+      case 'Confirmed': return 'تم التأكيد';
+      case 'Cancelled': return 'ملغى';
+      case 'Completed': return 'مكتمل';
+      default: return status;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case 'Pending': return 'bg-yellow-100 text-yellow-800';
+      case 'Confirmed': return 'bg-green-100 text-green-800';
+      case 'Cancelled': return 'bg-red-100 text-red-800';
+      case 'Completed': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const columns: ColumnDef<BookingRow>[] = [
+    {
+      accessorKey: "propertyDetails",
+      header: "الوحدة",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          {row.original.propertyDetails?.images?.[0]?.url && (
+            <img 
+              src={row.original.propertyDetails.images[0].url} 
+              alt={row.original.propertyDetails.title}
+              className="w-12 h-12 rounded-md object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = logo;
+              }}
+            />
+          )}
+          <div className="flex flex-col">
+            <span className="font-medium">{row.original.propertyDetails?.title || 'غير معروف'}</span>
+            <span className="text-sm text-gray-500">
+              {row.original.propertyDetails?.type}
+              {row.original.propertyDetails?.subtype && ` - ${row.original.propertyDetails.subtype}`}
+            </span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "client",
+      header: "العميل",
+      cell: ({ row }) => (
+        <div className="flex flex-col">
+          <span className="font-medium">{row.original.name}</span>
+          <span className="text-sm text-gray-500">{row.original.phoneNumber}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "period",
+      header: "الفترة",
+      cell: ({ row }) => (
+        <div className="flex flex-col">
+          <span>من: {new Date(row.original.startDate).toLocaleDateString()}</span>
+          <span>إلى: {new Date(row.original.endDate).toLocaleDateString()}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "price",
+      header: "السعر",
+      cell: ({ row }) => (
+        <div className="font-medium">
+          {row.original.totalPrice} {row.original.currency}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: "الحالة",
+      cell: ({ row }) => (
+        <Badge className={`${getStatusColor(row.original.status)}`}>
+          {getStatusText(row.original.status)}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "reservedAt",
+      header: "تاريخ الحجز",
+      cell: ({ row }) => (
+        <span>{new Date(row.original.reservedAt).toLocaleDateString()}</span>
+      ),
+    },
+    {
+      id: "actions",
+      header: "الإجراءات",
+      cell: ({ row }) => {
+        const isPending = row.original.status === 'Pending';
+        const isConfirmed = row.original.status === 'Confirmed';
+        
+        return (
+          <div className="flex items-center gap-2">
+            <Button
+              variant={isConfirmed ? "default" : "ghost"}
+              size="sm"
+              onClick={() => handleStatusUpdate(row.original.id, 'Confirmed')}
+              disabled={isConfirmed || loading}
+            >
+              تأكيد
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => handleStatusUpdate(row.original.id, 'Cancelled')}
+              disabled={row.original.status === 'Cancelled' || loading}
+            >
+              إلغاء
+            </Button>
+          </div>
+        );
+      },
+    },
+  ];
+
+  const table = useReactTable({
+    data: internalData,
+    columns,
+    state: { 
+      sorting,
+      pagination,
+    },
+    onSortingChange: setSorting,
+    onPaginationChange: setPagination,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  return (
+    <div>
+      {loading && (
+        <div className="flex justify-center items-center h-32">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        </div>
+      )}
+
+      {!loading && (
+        <>
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length > 0 ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">
+                    لا توجد بيانات متاحة
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+
+          <div className="flex items-center justify-between px-2 mt-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                السابق
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                التالي
+              </Button>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1">
+                <div>الصفحة</div>
+                <strong>
+                  {table.getState().pagination.pageIndex + 1} من {table.getPageCount()}
+                </strong>
+              </span>
+              
+              <select
+                value={table.getState().pagination.pageSize}
+                onChange={e => {
+                  table.setPageSize(Number(e.target.value))
+                }}
+                className="border rounded px-2 py-1"
+              >
+                {[10, 20, 30, 40, 50].map(pageSize => (
+                  <option key={pageSize} value={pageSize}>
+                    عرض {pageSize}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 // Main component that switches between tables
 export function DynamicTable({
   data,
   tableType,
 }: {
-  data: (UserRow | UnitRow | SubscriptionRow | WalletRow)[];
-  tableType: "users" | "units" | "subscriptions" | "wallets";
+  data: (UserRow | UnitRow | SubscriptionRow | WalletRow | BookingRow)[];
+  tableType: "users" | "units" | "subscriptions" | "wallets" | "bookings";
 }) {
   const filteredData = React.useMemo(() => {
     switch (tableType) {
@@ -1038,6 +1322,8 @@ export function DynamicTable({
         return data.filter((item): item is SubscriptionRow => "subscriptionType" in item);
       case "wallets":
         return data.filter((item): item is WalletRow => "balance" in item);
+      case "bookings":
+        return data.filter((item): item is BookingRow => "propertyId" in item);
       default:
         return [];
     }
@@ -1049,7 +1335,7 @@ export function DynamicTable({
       {tableType === "units" && <UnitTable data={filteredData as UnitRow[]} />}
       {tableType === "subscriptions" && <SubscriptionTable data={filteredData as SubscriptionRow[]} />}
       {tableType === "wallets" && <WalletTable data={filteredData as WalletRow[]} />}
-      
+      {tableType === "bookings" && <BookingTable data={filteredData as BookingRow[]} />}
     </div>
   );
 }
