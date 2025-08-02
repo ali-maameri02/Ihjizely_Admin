@@ -11,7 +11,6 @@ export type ApiUser = {
   profilePictureUrl: string;
 };
 
-// This matches your UserRow type from data-table.tsx
 export type UserRow = {
   id: number;
   name: string;
@@ -37,14 +36,13 @@ export const usersService = {
         }
       });
 
-      // Transform API data to match your UserRow type
       return response.data.map((user, index) => ({
-        id: index + 1, // Generate sequential ID since API doesn't provide numeric ID
+        id: index + 1,
         name: `${user.firstName} ${user.lastName}`,
-        username: user.phoneNumber, // Using phone as username
+        username: user.phoneNumber,
         role: user.role,
-        email: `${user.phoneNumber}@example.com`, // Mock email
-        date: new Date().toLocaleDateString(), // Mock date
+        email: `${user.phoneNumber}@example.com`,
+        date: new Date().toLocaleDateString(),
         image: user.profilePictureUrl || ''
       }));
     } catch (error) {
@@ -54,7 +52,30 @@ export const usersService = {
       throw new Error('An unexpected error occurred');
     }
   },
-  
+
+  async getUserById(userId: string): Promise<{ firstName: string; lastName: string }> {
+    try {
+      const token = authService.getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.get<ApiUser>(`${import.meta.env.VITE_API_URL}/Users/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': '*/*'
+        }
+      });
+
+      return {
+        firstName: response.data.firstName,
+        lastName: response.data.lastName
+      };
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.message || 'Failed to fetch user');
+      }
+      throw new Error('An unexpected error occurred');
+    }
+  }
 };
-
-

@@ -243,6 +243,8 @@ function DataTable<TData extends { id: number }>({
 
 // User-specific table
 export default function UserTable({ data }: { data: UserRow[] }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const columns: ColumnDef<UserRow>[] = [
     {
       accessorKey: "name",
@@ -300,8 +302,38 @@ export default function UserTable({ data }: { data: UserRow[] }) {
       ),
     },
   ];
+// Calculate paginated data
+const totalPages = Math.ceil(data.length / itemsPerPage);
+const startIndex = (currentPage - 1) * itemsPerPage;
+const endIndex = startIndex + itemsPerPage;
+const paginatedData = data.slice(startIndex, endIndex);
 
-  return <DataTable data={data} columns={columns} />;
+return (
+  <div>
+    <DataTable data={paginatedData} columns={columns} />
+    
+    {/* Simple pagination controls */}
+    <div className="flex items-center justify-center gap-4 mt-4">
+      <Button 
+        variant="outline" 
+        onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+        disabled={currentPage === 1}
+      >
+        السابق
+      </Button>
+      <span>
+        الصفحة {currentPage} من {totalPages}
+      </span>
+      <Button 
+        variant="outline" 
+        onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+        disabled={currentPage === totalPages}
+      >
+        التالي
+      </Button>
+    </div>
+  </div>
+);
 }
 
 // Unit-specific table
@@ -983,63 +1015,174 @@ export function SubscriptionTable({ data }: { data: SubscriptionRow[] }) {
   );
 }
 export function WalletTable({ data }: { data: WalletRow[] }) {
-  const columns: ColumnDef<WalletRow>[] = [
-    {
-      accessorKey: "name",
-      header: "الاسم",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Avatar>
-            <AvatarFallback>{row.original.name.charAt(0)}</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col">
-            <span className="font-medium">{row.original.name}</span>
-            <span className="text-sm text-muted-foreground">
-              {row.original.email}
-            </span>
-          </div>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "balance",
-      header: "رصيد",
-      cell: ({ row }) => (
-        <Badge variant="default" className="bg-green-600">
-          {row.original.balance}
-        </Badge>
-      ),
-    },
-    {
-      accessorKey: "registrationDate",
-      header: "تاريخ التسجيل",
-      cell: ({ row }) => <span>{row.original.registrationDate}</span>,
-    },
-    {
-      id: "actions",
-      header: "الإجراءات",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => toast.info(`تفاصيل محفظة ${row.original.name}`)}
-          >
-            <InfoIcon />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => toast.error(`تم حذف محفظة ${row.original.name}`)}
-          >
-            <IconTrash />
-          </Button>
-        </div>
-      ),
-    },
-  ];
+  const [loading, setLoading] = useState(false);
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [pagination, setPagination] = React.useState({
+    pageIndex: 0,
+    pageSize: 10,
+  });
 
-  return <DataTable data={data} columns={columns} />;
+  const table = useReactTable({
+    data,
+    columns: [
+      {
+        accessorKey: "name",
+        header: "الاسم",
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            <Avatar>
+              <AvatarFallback>{row.original.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col">
+              <span className="font-medium">{row.original.name}</span>
+              <span className="text-sm text-muted-foreground">
+                {row.original.email}
+              </span>
+            </div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "balance",
+        header: "رصيد",
+        cell: ({ row }) => (
+          <Badge variant="default" className="bg-green-600">
+            {row.original.balance}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: "registrationDate",
+        header: "تاريخ التسجيل",
+        cell: ({ row }) => <span>{row.original.registrationDate}</span>,
+      },
+      {
+        id: "actions",
+        header: "الإجراءات",
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => toast.info(`تفاصيل محفظة ${row.original.name}`)}
+            >
+              <InfoIcon />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => toast.error(`تم حذف محفظة ${row.original.name}`)}
+            >
+              <IconTrash />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    state: { 
+      sorting,
+      pagination,
+    },
+    onSortingChange: setSorting,
+    onPaginationChange: setPagination,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  if (loading) {
+    return <div>Loading wallets...</div>;
+  }
+
+  return (
+    <div>
+      <Table>
+        <TableHeader>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <TableHead key={header.id}>
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {table.getRowModel().rows.length > 0 ? (
+            table.getRowModel().rows.map((row) => (
+              <TableRow
+                key={row.id}
+                data-state={row.getIsSelected() && "selected"}
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">
+                لا توجد بيانات متاحة
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+
+      <div className="flex items-center justify-between px-2 mt-4">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            السابق
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            التالي
+          </Button>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-1">
+            <div>الصفحة</div>
+            <strong>
+              {table.getState().pagination.pageIndex + 1} من {table.getPageCount()}
+            </strong>
+          </span>
+          
+          <select
+            value={table.getState().pagination.pageSize}
+            onChange={e => {
+              table.setPageSize(Number(e.target.value))
+            }}
+            className="border rounded px-2 py-1"
+          >
+            {[10, 20, 30, 40, 50].map(pageSize => (
+              <option key={pageSize} value={pageSize}>
+                عرض {pageSize}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </div>
+  );
 }
 // Add to data-table.tsx
 export function BookingTable({ data }: { data: BookingRow[] }) {

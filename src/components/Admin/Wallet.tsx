@@ -21,10 +21,11 @@ import {
 } from "../ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { SearchIcon, DownloadIcon, PlusIcon, UserIcon, X } from "lucide-react";
+import { walletsService } from "@/API/walletsService";
 
 // Define user type
 interface User {
-  id: number;
+  id: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -39,82 +40,26 @@ export default function WalletManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(true); // Default open
+  const [isDropdownOpen, setIsDropdownOpen] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  // Sample wallet data
-  const sampleData: WalletRow[] = [
-    {
-      id: 1,
-      name: "All Maamri",
-      balance: "3000 LYD",
-      registrationDate: "5/27/15",
-      email: "all.maamri@example.com"
-    },
-    {
-      id: 2,
-      name: "Chemouri Abd EL Motailb",
-      balance: "3000 LYD",
-      registrationDate: "5/19/12",
-      email: "chemouri@example.com"
-    },
-    {
-      id: 3,
-      name: "Benouerzeg Mohamed Ali",
-      balance: "3000 LYD",
-      registrationDate: "3/4/16",
-      email: "benouerzeg@example.com"
-    },
-  ];
-
-  // Sample user data
-  const sampleUsers: User[] = [
-    {
-      id: 1,
-      firstName: "Jane",
-      lastName: "Cooper",
-      email: "jane.cooper@example.com",
-      avatar: "",
-      hasWallet: true // Already has wallet
-    },
-    {
-      id: 2,
-      firstName: "John",
-      lastName: "Doe",
-      email: "john.doe@example.com",
-      avatar: "",
-      hasWallet: false
-    },
-    {
-      id: 3,
-      firstName: "Robert",
-      lastName: "Johnson",
-      email: "robert.j@example.com",
-      avatar: "",
-      hasWallet: false
-    },
-    {
-      id: 4,
-      firstName: "Emily",
-      lastName: "Smith",
-      email: "emily.smith@example.com",
-      avatar: "",
-      hasWallet: true // Already has wallet
-    },
-    {
-      id: 5,
-      firstName: "Michael",
-      lastName: "Brown",
-      email: "michael.b@example.com",
-      avatar: "",
-      hasWallet: false
-    }
-  ];
-
-  // Initialize data
+  // Fetch wallets data
   useEffect(() => {
-    setWalletData(sampleData);
-    setFilteredData(sampleData);
-    setUsers(sampleUsers);
+    const fetchWallets = async () => {
+      try {
+        setLoading(true);
+        const wallets = await walletsService.getAllWallets();
+        setWalletData(wallets);
+        setFilteredData(wallets);
+      } catch (error) {
+        toast.error("Failed to fetch wallets");
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWallets();
   }, []);
 
   // Filter data based on search term
@@ -132,158 +77,173 @@ export default function WalletManagement() {
 
   const handleAddWallet = () => {
     setIsDialogOpen(true);
-    setSelectedUser(null); // Reset selection when opening dialog
-    setIsDropdownOpen(true); // Ensure dropdown is open when dialog opens
+    setSelectedUser(null);
+    setIsDropdownOpen(true);
   };
 
   const handleDownload = () => {
     toast.info("جارٍ تحميل بيانات المحافظ...");
   };
 
-  const handleCreateWallet = () => {
+  const handleCreateWallet = async () => {
     if (!selectedUser) {
       toast.error("الرجاء اختيار مستخدم");
       return;
     }
     
-    // Create wallet for selected user
-    const newWallet: WalletRow = {
-      id: walletData.length + 1,
-      name: `${selectedUser.firstName} ${selectedUser.lastName}`,
-      balance: "0 LYD",
-      registrationDate: new Date().toLocaleDateString('en-GB'),
-      email: selectedUser.email
-    };
-    
-    setWalletData(prev => [...prev, newWallet]);
-    setFilteredData(prev => [...prev, newWallet]);
-    
-    // Update user to mark as having a wallet
-    setUsers(prevUsers => 
-      prevUsers.map(user => 
-        user.id === selectedUser.id ? {...user, hasWallet: true} : user
-      )
-    );
-    
-    toast.success(`تم إنشاء محفظة لـ ${selectedUser.firstName} ${selectedUser.lastName}`);
-    setIsDialogOpen(false);
+    try {
+      setLoading(true);
+      // Call API to create wallet
+      const newWallet = await walletsService.getWalletByUserId(selectedUser.id);
+      
+      // Update local state
+      const walletRow: WalletRow = {
+        id: walletData.length + 1,
+        name: `${selectedUser.firstName} ${selectedUser.lastName}`,
+        balance: `${newWallet.amount} ${newWallet.currency}`,
+        registrationDate: new Date().toLocaleDateString('en-GB'),
+        email: selectedUser.email
+      };
+      
+      setWalletData(prev => [...prev, walletRow]);
+      setFilteredData(prev => [...prev, walletRow]);
+      
+      // Update user to mark as having a wallet
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.id === selectedUser.id ? {...user, hasWallet: true} : user
+        )
+      );
+      
+      toast.success(`تم إنشاء محفظة لـ ${selectedUser.firstName} ${selectedUser.lastName}`);
+      setIsDialogOpen(false);
+    } catch (error) {
+      toast.error("Failed to create wallet");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Calculate statistics
+  const totalBalance = walletData.reduce((sum, wallet) => {
+    const amount = parseFloat(wallet.balance.split(' ')[0]);
+    return isNaN(amount) ? sum : sum + amount;
+  }, 0);
+
+  const averageBalance = walletData.length > 0 
+    ? totalBalance / walletData.length 
+    : 0;
 
   return (
     <div className="w-full p-6 min-h-screen">
       {/* Wallet Creation Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-  <DialogPortal>
-    {/* Blurred Backdrop */}
-    <DialogOverlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999]" />
-    
-    {/* Dialog Content */}
-    <DialogContent className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-md max-h-[80vh] bg-white p-6 rounded-xl shadow-lg z-[100999] focus:outline-none">
-      <div className="absolute left-4 top-4">
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={() => {
-            setIsDialogOpen(false);
-          }}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-      
-      <DialogTitle className="text-2xl font-bold text-right mb-2">
-        إضافة محفظة جديدة
-      </DialogTitle>
-      <DialogDescription className="text-right mb-6 text-gray-600">
-        اختر مستخدمًا لإنشاء محفظة جديدة له
-      </DialogDescription>
-
-      <div className="mb-6 relative">
-        <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
-          <DropdownMenuTrigger asChild>
-            <div className="border rounded-lg p-3 cursor-pointer">
-              {selectedUser ? (
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarFallback>
-                      {selectedUser.firstName.charAt(0)}{selectedUser.lastName.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="text-right">
-                    <p className="font-medium">{selectedUser.firstName} {selectedUser.lastName}</p>
-                    <p className="text-sm text-gray-500">{selectedUser.email}</p>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-gray-500 text-right">اختر مستخدمًا من القائمة</p>
-              )}
+        <DialogPortal>
+          <DialogOverlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999]" />
+          <DialogContent className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-md max-h-[80vh] bg-white p-6 rounded-xl shadow-lg z-[100999] focus:outline-none">
+            <div className="absolute left-4 top-4">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setIsDialogOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
-          </DropdownMenuTrigger>
-          
-          {/* Portal for dropdown content to escape dialog stacking context */}
-          <DropdownMenuPortal>
-            <DropdownMenuContent 
-              className="w-full max-h-60 overflow-y-auto z-[999999]"
-              align="end"
-              style={{ 
-                zIndex: 999999,
-                width: "var(--radix-dropdown-menu-trigger-width)"
-              }}
-            >
-              {users.map(user => (
-                <DropdownMenuItem
-                  key={user.id}
-                  className={`flex items-center gap-3 p-3 ${user.hasWallet ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-100'}`}
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    if (!user.hasWallet) {
-                      setSelectedUser(user);
-                      setIsDropdownOpen(false);
-                    }
-                  }}
-                  disabled={user.hasWallet}
-                >
-                  <Avatar>
-                    <AvatarFallback>
-                      {user.firstName.charAt(0)}{user.lastName.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="text-right flex-1">
-                    <p className="font-medium">
-                      {user.firstName} {user.lastName}
-                      {user.hasWallet && (
-                        <span className="ml-2 text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
-                          لديه محفظة
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-sm text-gray-500">{user.email}</p>
-                  </div>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenuPortal>
-        </DropdownMenu>
-      </div>
+            
+            <DialogTitle className="text-2xl font-bold text-right mb-2">
+              إضافة محفظة جديدة
+            </DialogTitle>
+            <DialogDescription className="text-right mb-6 text-gray-600">
+              اختر مستخدمًا لإنشاء محفظة جديدة له
+            </DialogDescription>
 
-      <div className="flex justify-end gap-3 pt-4">
-        <Button 
-          variant="outline"
-          onClick={() => setIsDialogOpen(false)}
-        >
-          إلغاء
-        </Button>
-        <Button 
-          className="bg-purple-600 hover:bg-purple-700"
-          onClick={handleCreateWallet}
-          disabled={!selectedUser}
-        >
-          إنشاء محفظة
-        </Button>
-      </div>
-    </DialogContent>
-  </DialogPortal>
-</Dialog>
+            <div className="mb-6 relative">
+              <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+                <DropdownMenuTrigger asChild>
+                  <div className="border rounded-lg p-3 cursor-pointer">
+                    {selectedUser ? (
+                      <div className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarFallback>
+                            {selectedUser.firstName.charAt(0)}{selectedUser.lastName.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="text-right">
+                          <p className="font-medium">{selectedUser.firstName} {selectedUser.lastName}</p>
+                          <p className="text-sm text-gray-500">{selectedUser.email}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-right">اختر مستخدمًا من القائمة</p>
+                    )}
+                  </div>
+                </DropdownMenuTrigger>
+                
+                <DropdownMenuPortal>
+                  <DropdownMenuContent 
+                    className="w-full max-h-60 overflow-y-auto z-[999999]"
+                    align="end"
+                    style={{ 
+                      zIndex: 999999,
+                      width: "var(--radix-dropdown-menu-trigger-width)"
+                    }}
+                  >
+                    {users.map(user => (
+                      <DropdownMenuItem
+                        key={user.id}
+                        className={`flex items-center gap-3 p-3 ${user.hasWallet ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-100'}`}
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          if (!user.hasWallet) {
+                            setSelectedUser(user);
+                            setIsDropdownOpen(false);
+                          }
+                        }}
+                        disabled={user.hasWallet}
+                      >
+                        <Avatar>
+                          <AvatarFallback>
+                            {user.firstName.charAt(0)}{user.lastName.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="text-right flex-1">
+                          <p className="font-medium">
+                            {user.firstName} {user.lastName}
+                            {user.hasWallet && (
+                              <span className="ml-2 text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
+                                لديه محفظة
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-sm text-gray-500">{user.email}</p>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenuPortal>
+              </DropdownMenu>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button 
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+              >
+                إلغاء
+              </Button>
+              <Button 
+                className="bg-purple-600 hover:bg-purple-700"
+                onClick={handleCreateWallet}
+                disabled={!selectedUser || loading}
+              >
+                {loading ? "جاري الإنشاء..." : "إنشاء محفظة"}
+              </Button>
+            </div>
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
 
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -344,10 +304,7 @@ export default function WalletManagement() {
             <div>
               <h3 className="text-lg font-medium text-gray-600">إجمالي الأرصدة</h3>
               <p className="text-3xl font-bold mt-2">
-                {walletData.reduce((sum, wallet) => {
-                  const amount = parseInt(wallet.balance);
-                  return isNaN(amount) ? sum : sum + amount;
-                }, 0).toLocaleString()} LYD
+                {totalBalance.toLocaleString()} LYD
               </p>
             </div>
             <div className="bg-green-100 p-3 rounded-full">
@@ -363,14 +320,9 @@ export default function WalletManagement() {
             <div>
               <h3 className="text-lg font-medium text-gray-600">متوسط الرصيد</h3>
               <p className="text-3xl font-bold mt-2">
-                {walletData.length > 0 
-                  ? (walletData.reduce((sum, wallet) => {
-                      const amount = parseInt(wallet.balance);
-                      return isNaN(amount) ? sum : sum + amount;
-                    }, 0) / walletData.length).toLocaleString(undefined, {
-                      maximumFractionDigits: 0
-                    }) 
-                  : 0} LYD
+                {averageBalance.toLocaleString(undefined, {
+                  maximumFractionDigits: 2
+                })} LYD
               </p>
             </div>
             <div className="bg-purple-100 p-3 rounded-full">
@@ -384,28 +336,16 @@ export default function WalletManagement() {
       
       {/* Wallet Table */}
       <div className="bg-white rounded-xl border shadow-sm">
-        <WalletTable data={filteredData} />
-        
-        {/* Pagination */}
-        <div className="flex items-center justify-between p-4 border-t">
-          <div className="text-sm text-gray-700">
-            عرض 1 إلى {Math.min(5, filteredData.length)} من {filteredData.length} نتائج
+        {loading ? (
+          <div className="flex justify-center items-center h-32">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
           </div>
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm">
-              السابق
-            </Button>
-            <Button variant="outline" size="sm" className="bg-blue-100 text-blue-700">
-              1
-            </Button>
-            <Button variant="outline" size="sm">
-              2
-            </Button>
-            <Button variant="outline" size="sm">
-              التالي
-            </Button>
-          </div>
-        </div>
+        ) : (
+          <>
+            <WalletTable data={filteredData} />
+            {/* Pagination controls would be handled inside WalletTable component */}
+          </>
+        )}
       </div>
     </div>
   );
