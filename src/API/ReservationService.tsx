@@ -77,28 +77,37 @@ export const reservationService = {
     return allBookings.slice(0, 3); // Return only the 5 most recent bookings
   },
 
-  async updateBookingStatus(bookingId: string, status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed'): Promise<Booking> {
+  async updateBookingStatus(bookingId: string, newStatus: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed'): Promise<Booking> {
     try {
       const token = authService.getAuthToken();
       if (!token) throw new Error('No authentication token found');
 
+      // Validate the booking ID is a valid UUID
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(bookingId)) {
+        throw new Error('Invalid booking ID format');
+      }
+
       const response = await axios.patch<Booking>(
         `${API_URL}/Bookings/${bookingId}/status`,
-        { status },
+        { newStatus }, // Make sure this matches exactly what the API expects
         {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
           }
         }
       );
 
       return response.data;
     } catch (error) {
-      throw this.handleApiError(error, 'Failed to update booking status');
+      if (axios.isAxiosError(error)) {
+        console.error('API Error Details:', error.response?.data);
+        throw new Error(error.response?.data?.message || 'Failed to update booking status');
+      }
+      throw error;
     }
   },
-
   handleApiError(error: unknown, defaultMessage: string): Error {
     if (axios.isAxiosError(error)) {
       return new Error(error.response?.data?.message || defaultMessage);

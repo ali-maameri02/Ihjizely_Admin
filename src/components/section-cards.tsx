@@ -27,7 +27,7 @@ export function SectionCards() {
   if (!statistics) return <ErrorMessage message="No statistics data available" />;
 
   return (
-    <div className="grid grid-cols-1 gap-4 px-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 px-4 sm:grid-cols-2 lg:grid-cols-3"> {/* Changed to 4 columns */}
       <StatCard 
         icon={usericon} 
         value={statistics.totalUsers} 
@@ -45,9 +45,11 @@ export function SectionCards() {
       <StatCard 
         icon={calendar} 
         value={statistics.reserved} 
-        label="محجوز" 
+        label="محجوز (مؤكد)" 
         alt="Reservations"
       />
+
+    
     </div>
   );
 }
@@ -62,7 +64,7 @@ interface StatCardProps {
 const StatCard = ({ icon, value, label, alt }: StatCardProps) => (
   <Card className="flex flex-row items-center justify-between bg-white from-primary/5 to-card dark:bg-card shadow-xs transition-transform hover:scale-[1.01] p-4">
     <div className="mr-4">
-      <img src={icon} alt={alt}/>
+      <img src={icon} alt={alt} className="w-10 h-10"/>
     </div>
     <div className="flex-1">
       <CardHeader className="p-0 text-right">

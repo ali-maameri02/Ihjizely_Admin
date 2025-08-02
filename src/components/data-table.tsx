@@ -1050,19 +1050,29 @@ export function BookingTable({ data }: { data: BookingRow[] }) {
     pageIndex: 0,
     pageSize: 10,
   });
+  const [activeTab, setActiveTab] = React.useState<
+    'all' | 'confirmed' | 'pending' | 'cancelled' | 'completed'
+  >('all');
 
-  const handleStatusUpdate = async (bookingId: string, status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed') => {
+  // Filter data based on active tab
+  const filteredData = React.useMemo(() => {
+    if (activeTab === 'all') return internalData;
+    return internalData.filter(booking => booking.status.toLowerCase() === activeTab);
+  }, [internalData, activeTab]);
+
+  const handleStatusUpdate = async (bookingId: string, newStatus: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed') => {
     try {
       setLoading(true);
-      const updatedBooking = await reservationService.updateBookingStatus(bookingId, status);
+      const updatedBooking = await reservationService.updateBookingStatus(bookingId, newStatus);
       
       setInternalData(prev => prev.map(booking => 
-        booking.id === bookingId ? { ...booking, status } : booking
+        booking.id === bookingId ? { ...booking, status: newStatus } : booking
       ));
       
-      toast.success(`تم تحديث حالة الحجز إلى ${getStatusText(status)}`);
+      toast.success(`Booking status updated to ${getStatusText(newStatus)}`);
     } catch (error) {
-      toast.error('Failed to update booking status');
+      console.error('Status update failed:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update booking status');
     } finally {
       setLoading(false);
     }
@@ -1191,7 +1201,7 @@ export function BookingTable({ data }: { data: BookingRow[] }) {
   ];
 
   const table = useReactTable({
-    data: internalData,
+    data: filteredData, // Use filteredData instead of internalData
     columns,
     state: { 
       sorting,
@@ -1207,6 +1217,40 @@ export function BookingTable({ data }: { data: BookingRow[] }) {
 
   return (
     <div>
+      {/* Status Tabs */}
+      <div className="flex border-b mb-4">
+        <button
+          className={`px-4 py-2 font-medium ${activeTab === 'all' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
+          onClick={() => setActiveTab('all')}
+        >
+          الكل
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${activeTab === 'confirmed' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
+          onClick={() => setActiveTab('confirmed')}
+        >
+          المؤكدة
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${activeTab === 'pending' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
+          onClick={() => setActiveTab('pending')}
+        >
+          قيد الانتظار
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${activeTab === 'cancelled' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
+          onClick={() => setActiveTab('cancelled')}
+        >
+          الملغية
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${activeTab === 'completed' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
+          onClick={() => setActiveTab('completed')}
+        >
+          المكتملة
+        </button>
+      </div>
+
       {loading && (
         <div className="flex justify-center items-center h-32">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
@@ -1249,7 +1293,9 @@ export function BookingTable({ data }: { data: BookingRow[] }) {
               ) : (
                 <TableRow>
                   <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">
-                    لا توجد بيانات متاحة
+                    {activeTab === 'all' 
+                      ? "لا توجد بيانات متاحة" 
+                      : `لا توجد حجوزات ${getStatusText(activeTab.toUpperCase())}`}
                   </TableCell>
                 </TableRow>
               )}
