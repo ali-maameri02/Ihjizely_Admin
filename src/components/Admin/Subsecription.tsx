@@ -1,73 +1,49 @@
 import { useState, useEffect } from "react";
-import { DownloadCloudIcon, FilterIcon, MoreVertical, UserIcon, CalendarIcon, TagIcon, EditIcon, PencilIcon } from "lucide-react";
-import { SubscriptionTable } from "../data-table";
-import adduserIcon from '../../assets/add_user.svg';
+import { DownloadCloudIcon, FilterIcon, MoreVertical, UserIcon, CalendarIcon, TagIcon, PencilIcon } from "lucide-react";
+import { SubscriptionRow, SubscriptionTable } from "../data-table";
 import { Link } from "react-router-dom";
-
-const subscriptionData = [
-  {
-    id: 1,
-    owner: "Ali Maanni",
-    subscriptionType: "BRONZE",
-    registrationDate: "5/27/15",
-    status: "active"
-  },
-  {
-    id: 2,
-    owner: "Chemouri Abd EL Motalib",
-    subscriptionType: "GOLD",
-    registrationDate: "5/19/12",
-    status: "active"
-  },
-  {
-    id: 3,
-    owner: "Benouerzeg Mohamed Ali",
-    subscriptionType: "BRONZE",
-    registrationDate: "3/4/16",
-    status: "active"
-  },
-  {
-    id: 4,
-    owner: "Ali Maanni",
-    subscriptionType: "BRONZE",
-    registrationDate: "3/4/16",
-    status: "active"
-  },
-  {
-    id: 5,
-    owner: "Benouerzeg Mohamed Ali",
-    subscriptionType: "GOLD",
-    registrationDate: "7/27/13",
-    status: "active"
-  },
-  {
-    id: 6,
-    owner: "Benouerzeg Mohamed Ali",
-    subscriptionType: "BRONZE",
-    registrationDate: "5/27/15",
-    status: "active"
-  },
-];
+import { subscriptionsService } from "@/API/SubscriptionsService";
+import { toast } from "sonner";
 
 export default function Subscription() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [selectedFilters, setSelectedFilters] = useState(['owner', 'subscriptionType', 'registrationDate']);
-  const [filteredData, setFilteredData] = useState(subscriptionData);
+  const [selectedFilters, setSelectedFilters] = useState(['businessOwnerId', 'planName', 'startDate']);
+  const [apiData, setApiData] = useState<SubscriptionRow[]>([]); // Store original API data
+  const [filteredData, setFilteredData] = useState<SubscriptionRow[]>([]); // Store filtered data
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Apply filters whenever search query or selected filters change
+  // Fetch data once on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const data = await subscriptionsService.getSubscriptionsWithPlans();
+        setApiData(data);
+        setFilteredData(data); // Initialize filteredData with all data
+      } catch (error) {
+        toast.error('Failed to load subscription data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
+
+  // Apply filters whenever search query, selected filters, or apiData changes
   useEffect(() => {
     const searchLower = searchQuery.toLowerCase();
     
-    const filtered = subscriptionData.filter(item => {
+    const filtered = apiData.filter(item => {
       return selectedFilters.some(filter => {
         switch(filter) {
-          case 'owner':
-            return item.owner.toLowerCase().includes(searchLower);
-          case 'subscriptionType':
-            return item.subscriptionType.toLowerCase().includes(searchLower);
-          case 'registrationDate':
-            return item.registrationDate.includes(searchQuery);
+          case 'businessOwnerId':
+            return item.businessOwnerId.toLowerCase().includes(searchLower);
+          case 'planName':
+            return item.planName.toLowerCase().includes(searchLower);
+          case 'startDate':
+            return item.startDate.includes(searchQuery);
           default:
             return false;
         }
@@ -75,7 +51,7 @@ export default function Subscription() {
     });
     
     setFilteredData(filtered);
-  }, [searchQuery, selectedFilters]);
+  }, [searchQuery, selectedFilters, apiData]); // Now depends on apiData instead of filteredData
 
   const toggleFilter = (filter: string) => {
     setSelectedFilters(prev => 
@@ -87,10 +63,18 @@ export default function Subscription() {
 
   const downloadCSV = () => {
     // Create CSV content
-    const headers = ['صاحب العمل', 'نوع الاشتراك', 'تاريخ التسجيل'];
+    const headers = ['معرف صاحب العمل', 'اسم الخطة', 'تاريخ البدء', 'تاريخ الانتهاء', 'السعر', 'الإعلانات المستخدمة', 'الحالة'];
     const csvContent = [
       headers.join(','),
-      ...filteredData.map(item => [item.owner, item.subscriptionType, item.registrationDate].join(','))
+      ...filteredData.map(item => [
+        item.businessOwnerId,
+        item.planName,
+        item.startDate,
+        item.endDate,
+        `${item.price.amount} ${item.price.currencyCode}`,
+        `${item.usedAds}/${item.maxAds}`,
+        item.isActive ? 'نشط' : 'غير نشط'
+      ].join(','))
     ].join('\n');
     
     // Create and trigger download
@@ -110,17 +94,15 @@ export default function Subscription() {
       <div className="flex flex-col md:flex-col justify-between md:items-center gap-4 mb-6">
         <div className="flex items-center gap-2 justify-between w-full">
           <div className="">  
-          <h1 className="text-2xl font-bold"> إدارة اﻟﺎﺷﺘﺮاﻛﺎت</h1>
-      
-               <p className="text-gray-600 mt-1">إدارة جميع إﺷﺘﺮاﻛﺎت المستخدمين في النظام</p>
-</div>
-<Link to={'/Admin/subscription-plans'}>
-<button className="bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center justify-between gap-2 cursor-pointer">
-            <span>تعديل اشتراك</span>
-               <PencilIcon/>
-          </button>
-</Link>
-
+            <h1 className="text-2xl font-bold"> إدارة اﻟﺎﺷﺘﺮاﻛﺎت</h1>
+            <p className="text-gray-600 mt-1">إدارة جميع إﺷﺘﺮاﻛﺎت المستخدمين في النظام</p>
+          </div>
+          <Link to={'/Admin/subscription-plans'}>
+            <button className="bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center justify-between gap-2 cursor-pointer">
+              <span>تعديل اشتراك</span>
+              <PencilIcon/>
+            </button>
+          </Link>
         </div>
 
         <div className="flex items-end gap-2 w-full md:w-full">
@@ -166,33 +148,33 @@ export default function Subscription() {
             {/* Owner Filter */}
             <div 
               className={`flex flex-row text-[#959595] text-right items-center w-full justify-end gap-4 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                selectedFilters.includes('owner') ? 'bg-purple-100 text-purple-600' : 'hover:bg-gray-100'
+                selectedFilters.includes('businessOwnerId') ? 'bg-purple-100 text-purple-600' : 'hover:bg-gray-100'
               }`}
-              onClick={() => toggleFilter('owner')}
+              onClick={() => toggleFilter('businessOwnerId')}
             >
-              <span>صاحب العمل</span>
+              <span>معرف صاحب العمل</span>
               <UserIcon className="h-5 w-5" />
             </div>
 
             {/* Subscription Type Filter */}
             <div 
               className={`flex flex-row text-right text-[#959595] items-center w-full justify-end gap-4 rounded-lg px-3 py-2 cursor-pointer transition-colors ${
-                selectedFilters.includes('subscriptionType') ? 'bg-purple-100 text-purple-600' : 'hover:bg-gray-100'
+                selectedFilters.includes('planName') ? 'bg-purple-100 text-purple-600' : 'hover:bg-gray-100'
               }`}
-              onClick={() => toggleFilter('subscriptionType')}
+              onClick={() => toggleFilter('planName')}
             >
-              <span>نوع الاشتراك</span>
+              <span>اسم الخطة</span>
               <TagIcon className="h-5 w-5" />
             </div>
 
             {/* Registration Date Filter */}
             <div 
               className={`flex flex-row text-right text-[#959595] items-center w-full justify-end gap-4  px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                selectedFilters.includes('registrationDate') ? 'bg-purple-100 text-purple-600' : 'hover:bg-gray-100'
+                selectedFilters.includes('startDate') ? 'bg-purple-100 text-purple-600' : 'hover:bg-gray-100'
               }`}
-              onClick={() => toggleFilter('registrationDate')}
+              onClick={() => toggleFilter('startDate')}
             >
-              <span>تاريخ التسجيل</span>
+              <span>تاريخ البدء</span>
               <CalendarIcon className="h-5 w-5" />
             </div>
           </div>

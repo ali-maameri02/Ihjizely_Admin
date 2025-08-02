@@ -48,6 +48,11 @@ const data = {
       icon: IconBuilding,
     },
     {
+      title: "إدارة الحجوزات",
+      url: "/Admin/reservations",
+      icon: IconBuilding,
+    },
+    {
       title: "إدارة الاشتراكات",
       url: "/Admin/subscriptions",
       icon: IconReceipt2,

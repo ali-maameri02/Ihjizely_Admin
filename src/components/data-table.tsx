@@ -48,6 +48,7 @@ import '../index.css'
 import { Property, unitsService } from "@/API/UnitsService";
 import { useState } from "react";
 import { PropertyDetailsModal } from "./Admin/PropertyDetailsModal";
+import { subscriptionsService } from "@/API/SubscriptionsService";
 // Define schemas
 export const userSchema = z.object({
   id: z.number(),
@@ -74,11 +75,20 @@ export const unitSchema = z.object({
 
 
 export const subscriptionSchema = z.object({
-  id: z.number(),
-  owner: z.string(),
-  subscriptionType: z.string(),
-  registrationDate: z.string(),
-  status: z.string(),
+  id: z.string(),
+  businessOwnerId: z.string(),
+  planId: z.string(),
+  planName: z.string(),
+  startDate: z.string(),
+  endDate: z.string(),
+  price: z.object({
+    amount: z.number(),
+    currencyCode: z.string(),
+  }),
+  maxAds: z.number(),
+  usedAds: z.number(),
+  isActive: z.boolean(),
+  hasAdQuota: z.boolean(),
 });
 
 
@@ -721,50 +731,234 @@ export function UnitTable({ data }: { data: UnitRow[] }) {
 }
 // Subscription-specific table
 export function SubscriptionTable({ data }: { data: SubscriptionRow[] }) {
-  const columns: ColumnDef<SubscriptionRow>[] = [
+  const [internalData, setInternalData] = React.useState<(SubscriptionRow & { ownerName: string })[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [pagination, setPagination] = React.useState({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+
+  React.useEffect(() => {
+    const fetchSubscriptionData = async () => {
+      try {
+        setLoading(true);
+        // First get subscriptions with plans
+        const subscriptionsWithPlans = await subscriptionsService.getSubscriptionsWithPlans();
+        
+        // Then fetch owner details for each subscription
+        const subscriptionsWithOwnerNames = await Promise.all(
+          subscriptionsWithPlans.map(async (sub) => {
+            try {
+              const userDetails = await subscriptionsService.getUserDetails(sub.businessOwnerId);
+              return {
+                ...sub,
+                ownerName: `${userDetails.firstName} ${userDetails.lastName}`
+              };
+            } catch (error) {
+              console.error(`Failed to fetch user details for ${sub.businessOwnerId}`, error);
+              return {
+                ...sub,
+                ownerName: sub.businessOwnerId // Fallback to ID if name fetch fails
+              };
+            }
+          })
+        );
+        
+        setInternalData(subscriptionsWithOwnerNames);
+      } catch (error) {
+        toast.error('Failed to load subscription data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSubscriptionData();
+  }, []);
+
+  const columns: ColumnDef<SubscriptionRow & { ownerName: string }>[] = [
     {
-      accessorKey: "owner",
+      accessorKey: "ownerName",
       header: "صاحب العمل",
       cell: ({ row }) => (
-        <div className="font-medium">{row.original.owner}</div>
+        <div className="font-medium">{row.original.ownerName}</div>
       ),
     },
     {
-      accessorKey: "subscriptionType",
-      header: "نوع الاشتراك",
+      accessorKey: "planName",
+      header: "خطة الاشتراك",
       cell: ({ row }) => (
-        <Badge 
-          variant={
-            row.original.subscriptionType === "GOLD" ? "default" : 
-            row.original.subscriptionType === "SILVER" ? "secondary" : "outline"
-          }
-        >
-          {row.original.subscriptionType}
+        <Badge variant={row.original.isActive ? "default" : "outline"}>
+          {row.original.planName}
         </Badge>
       ),
     },
     {
-      accessorKey: "registrationDate",
-      header: "تاريخ التسجيل",
-      cell: ({ row }) => <span>{row.original.registrationDate}</span>,
+      accessorKey: "price",
+      header: "السعر",
+      cell: ({ row }) => (
+        <div>
+          {row.original.price.amount} {row.original.price.currencyCode}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "period",
+      header: "الفترة",
+      cell: ({ row }) => (
+        <div className="flex flex-col">
+          <span>من: {new Date(row.original.startDate).toLocaleDateString()}</span>
+          <span>إلى: {new Date(row.original.endDate).toLocaleDateString()}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "ads",
+      header: "الإعلانات",
+      cell: ({ row }) => (
+        <div>
+          {row.original.usedAds} / {row.original.maxAds}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: "الحالة",
+      cell: ({ row }) => (
+        <Badge variant={row.original.isActive ? "default" : "destructive"}>
+          {row.original.isActive ? "نشط" : "منتهي"}
+        </Badge>
+      ),
     },
     {
       id: "actions",
       header: "الإجراءات",
       cell: ({ row }) => (
         <Button
-            variant="ghost"
-            size="icon"
-            className="w-8 h-8"
-            onClick={() => toast.info(`تفاصيل اشتراك ${row.original.owner}`)}
-          >
-            <InfoIcon className="w-4 h-4 text-blue-500" />
-          </Button>
+          variant="ghost"
+          size="icon"
+          className="w-8 h-8"
+          onClick={() => toast.info(`تفاصيل اشتراك ${row.original.ownerName}`)}
+        >
+          <InfoIcon className="w-4 h-4 text-blue-500" />
+        </Button>
       ),
     },
   ];
 
-  return <DataTable data={data} columns={columns} />;
+  const table = useReactTable({
+    data: internalData,
+    columns,
+    state: { 
+      sorting,
+      pagination,
+    },
+    onSortingChange: setSorting,
+    onPaginationChange: setPagination,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  return (
+    <div>
+      {loading && (
+        <div className="flex justify-center items-center h-32">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        </div>
+      )}
+
+      {!loading && (
+        <>
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length > 0 ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">
+                    لا توجد بيانات متاحة
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+
+          <div className="flex items-center justify-between px-2 mt-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                السابق
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                التالي
+              </Button>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1">
+                <div>الصفحة</div>
+                <strong>
+                  {table.getState().pagination.pageIndex + 1} من {table.getPageCount()}
+                </strong>
+              </span>
+              
+              <select
+                value={table.getState().pagination.pageSize}
+                onChange={e => {
+                  table.setPageSize(Number(e.target.value))
+                }}
+                className="border rounded px-2 py-1"
+              >
+                {[10, 20, 30, 40, 50].map(pageSize => (
+                  <option key={pageSize} value={pageSize}>
+                    عرض {pageSize}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 export function WalletTable({ data }: { data: WalletRow[] }) {
   const columns: ColumnDef<WalletRow>[] = [

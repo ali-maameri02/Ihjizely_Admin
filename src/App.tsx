@@ -81,6 +81,14 @@ function App() {
           }
         />
         <Route
+          path="/Admin/reservations"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <Units />
+            </Suspense>
+          }
+        />
+        <Route
           path="/Admin/subscriptions"
           element={
             <Suspense fallback={<PageLoader />}>
