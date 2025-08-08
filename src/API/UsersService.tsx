@@ -53,7 +53,9 @@ export const usersService = {
     }
   },
 
-  async getUserById(userId: string): Promise<{ firstName: string; lastName: string }> {
+  async getUserById(userId: string): Promise<{
+    [x: string]: string; firstName: string; lastName: string 
+}> {
     try {
       const token = authService.getAuthToken();
       if (!token) {
