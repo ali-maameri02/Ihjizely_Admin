@@ -11,4 +11,13 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  optimizeDeps: {
+    exclude: ['lucide-react', 'sonner'], // Add problematic packages here
+    include: [
+      // Explicitly include other dependencies if needed
+    ]
+  },
+  server: {
+    host: true // This will expose the server to your network
+  }
 })

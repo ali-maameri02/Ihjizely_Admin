@@ -18,7 +18,9 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { IconThumbDownFilled, IconThumbUpFilled, IconTrash } from "@tabler/icons-react";
-import { InfoIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
+import { InfoIcon, PlusCircle, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
+import Swal from 'sweetalert2';
+
 import {
   ColumnDef,
   flexRender,
@@ -50,15 +52,21 @@ import { useState } from "react";
 import { PropertyDetailsModal } from "./Admin/PropertyDetailsModal";
 import { subscriptionsService } from "@/API/SubscriptionsService";
 import { reservationService } from "@/API/ReservationService";
+import { walletsService } from "@/API/walletsService";
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogOverlay, Portal } from "@radix-ui/react-dialog";
+import { Input } from "./ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { usersService } from "@/API/UsersService";
 // Define schemas
 export const userSchema = z.object({
-  id: z.number(),
+  id: z.string(), // Change from number to string
   name: z.string(),
   username: z.string(),
   role: z.string(),
   email: z.string(),
   date: z.string(),
-  image: z.string()
+  image: z.string(),
+  isBlocked: z.boolean() // Add this
 });
 
 export const unitSchema = z.object({
@@ -160,7 +168,7 @@ interface DataTableProps<TData> {
   columns: ColumnDef<TData>[];
 }
 
-function DataTable<TData extends { id: number }>({
+function DataTable<TData extends { id: string  }>({
   data,
   columns,
 }: DataTableProps<TData>) {
@@ -244,7 +252,141 @@ function DataTable<TData extends { id: number }>({
 // User-specific table
 export default function UserTable({ data }: { data: UserRow[] }) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<'all' | 'blocked' | 'unblocked'>('all');
+  const [loading, setLoading] = useState(false);
   const itemsPerPage = 10;
+
+  // Filter data based on active tab
+  const filteredData = React.useMemo(() => {
+    if (activeTab === 'all') return data;
+    return data.filter(user => 
+      activeTab === 'blocked' ? user.isBlocked : !user.isBlocked
+    );
+  }, [data, activeTab]);
+
+  // Calculate paginated data
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedData = filteredData.slice(startIndex, endIndex);
+
+  // In your handleBlockUser function:
+  const handleBlockUser = async (userId: string, userName: string) => {
+    try {
+      setLoading(true);
+      
+      // Get the user's current warning count from localStorage
+      const warningKey = `block-warning-${userId}`;
+      const warningCount = parseInt(localStorage.getItem(warningKey) || '0', 10);
+  
+      if (warningCount < 2) {
+        // First or second warning
+        await Swal.fire({
+          title: 'تحذير',
+          text: `سيتم حظر المستخدم ${userName} بعد ${2 - warningCount} تحذير${warningCount === 1 ? '' : 'ين'}`,
+          icon: 'warning',
+          confirmButtonText: 'حسناً',
+          confirmButtonColor: '#3085d6',
+        });
+  
+        // Increment the warning count
+        localStorage.setItem(warningKey, (warningCount + 1).toString());
+        return;
+      }
+  
+      // Third attempt - proceed with blocking
+      const confirmResult = await Swal.fire({
+        title: 'تأكيد الحظر',
+        text: `سيتم حظر المستخدم ${userName} نهائياً!`,
+        icon: 'error',
+        showCancelButton: true,
+        confirmButtonText: 'تأكيد الحظر',
+        cancelButtonText: 'إلغاء',
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+      });
+  
+      if (!confirmResult.isConfirmed) return;
+  
+      await usersService.blockUser(userId);
+      
+      // Reset the warning count after blocking
+      localStorage.removeItem(warningKey);
+      
+      await Swal.fire({
+        title: 'تم الحظر بنجاح',
+        text: `تم حظر المستخدم ${userName} بنجاح`,
+        icon: 'success',
+        confirmButtonText: 'حسناً'
+      });
+      await usersService.getAllUsers();
+
+  
+    } catch (error) {
+      console.error('Block user failed:', error);
+      let errorMessage = 'فشل في حظر المستخدم';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Invalid user ID')) {
+          errorMessage = 'معرف المستخدم غير صحيح';
+        } else if (error.message.includes('already')) {
+          errorMessage = 'المستخدم محظور بالفعل';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      await Swal.fire({
+        title: 'خطأ',
+        text: errorMessage,
+        icon: 'error',
+        confirmButtonText: 'حسناً'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleUnblockUser = async (userId: string, userName: string) => {
+    try {
+      setLoading(true);
+      
+      const result = await Swal.fire({
+        title: 'تأكيد فك الحظر',
+        text: `هل أنت متأكد من رغبتك في فك حظر ${userName}؟`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'نعم، فك الحظر',
+        cancelButtonText: 'إلغاء',
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+      });
+  
+      if (!result.isConfirmed) return;
+  
+      await usersService.unblockUser(userId);
+      
+      await Swal.fire({
+        title: 'تم فك الحظر بنجاح',
+        text: `تم فك حظر المستخدم ${userName} بنجاح`,
+        icon: 'success',
+        confirmButtonText: 'حسناً'
+      });
+  
+      // Refresh data or update state
+       await usersService.getAllUsers();
+      
+    } catch (error) {
+      await Swal.fire({
+        title: 'خطأ',
+        text: error instanceof Error ? error.message : 'فشل في فك حظر المستخدم',
+        icon: 'error',
+        confirmButtonText: 'حسناً'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   const columns: ColumnDef<UserRow>[] = [
     {
       accessorKey: "name",
@@ -280,8 +422,17 @@ export default function UserTable({ data }: { data: UserRow[] }) {
       cell: ({ row }) => <span>{row.original.date}</span>,
     },
     {
+      accessorKey: "status",
+      header: "الحالة",
+      cell: ({ row }) => (
+        <Badge variant={row.original.isBlocked ? "destructive" : "default"}>
+          {row.original.isBlocked ? "محظور" : "نشط"}
+        </Badge>
+      ),
+    },
+    {
       id: "actions",
-      header: () => null,
+      header: "الإجراءات",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Button
@@ -291,49 +442,122 @@ export default function UserTable({ data }: { data: UserRow[] }) {
           >
             <InfoIcon />
           </Button>
+          
+          {row.original.isBlocked ? (
+  <Button
+    variant="ghost"
+    size="icon"
+    onClick={() => handleUnblockUser(
+      row.original.id,
+      row.original.name
+    )}
+    disabled={loading}
+  >
+    <ThumbsUpIcon className="w-4 h-4 text-green-500" />
+  </Button>
+) : (
+  <Button
+    variant="ghost"
+    size="icon"
+    onClick={() => handleBlockUser(
+      row.original.id,
+      row.original.name
+    )}
+    disabled={loading}
+  >
+    <ThumbsDownIcon className="w-4 h-4 text-red-500" />
+  </Button>
+)}
+          
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => toast.error(`تم حذف ${row.original.name}`)}
+            onClick={async () => {
+              const confirmDelete = window.confirm(`Are you sure you want to delete ${row.original.name}?`);
+              if (!confirmDelete) return;
+
+              try {
+                await usersService.deleteUser(row.original.id.toString());
+                toast.success('تم حذف المستخدم بنجاح');
+              } catch (error) {
+                toast.error('فشل في حذف المستخدم');
+              }
+            }}
           >
-            <IconTrash />
+            <IconTrash className="w-4 h-4 text-red-500" />
           </Button>
         </div>
       ),
     },
   ];
-// Calculate paginated data
-const totalPages = Math.ceil(data.length / itemsPerPage);
-const startIndex = (currentPage - 1) * itemsPerPage;
-const endIndex = startIndex + itemsPerPage;
-const paginatedData = data.slice(startIndex, endIndex);
 
-return (
-  <div>
-    <DataTable data={paginatedData} columns={columns} />
-    
-    {/* Simple pagination controls */}
-    <div className="flex items-center justify-center gap-4 mt-4">
-      <Button 
-        variant="outline" 
-        onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-        disabled={currentPage === 1}
-      >
-        السابق
-      </Button>
-      <span>
-        الصفحة {currentPage} من {totalPages}
-      </span>
-      <Button 
-        variant="outline" 
-        onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-        disabled={currentPage === totalPages}
-      >
-        التالي
-      </Button>
+  return (
+    <div>
+      {/* Tabs for filtering */}
+      <div className="flex border-b mb-4">
+        <button
+          className={`px-4 py-2 font-medium ${activeTab === 'all' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
+          onClick={() => {
+            setActiveTab('all');
+            setCurrentPage(1);
+          }}
+        >
+          الكل
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${activeTab === 'blocked' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
+          onClick={() => {
+            setActiveTab('blocked');
+            setCurrentPage(1);
+          }}
+        >
+          المحظورين
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${activeTab === 'unblocked' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
+          onClick={() => {
+            setActiveTab('unblocked');
+            setCurrentPage(1);
+          }}
+        >
+          النشطين
+        </button>
+      </div>
+
+      {loading && (
+        <div className="flex justify-center items-center h-32">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        </div>
+      )}
+
+      {!loading && (
+        <>
+          <DataTable data={paginatedData} columns={columns} />
+          
+          {/* Pagination controls */}
+          <div className="flex items-center justify-center gap-4 mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              السابق
+            </Button>
+            <span>
+              الصفحة {currentPage} من {totalPages}
+            </span>
+            <Button 
+              variant="outline" 
+              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              التالي
+            </Button>
+          </div>
+        </>
+      )}
     </div>
-  </div>
-);
+  );
 }
 
 // Unit-specific table
@@ -1017,10 +1241,40 @@ export function SubscriptionTable({ data }: { data: SubscriptionRow[] }) {
 export function WalletTable({ data }: { data: WalletRow[] }) {
   const [loading, setLoading] = useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [rechargeDialogOpen, setRechargeDialogOpen] = useState(false);
+  const [selectedWallet, setSelectedWallet] = useState<WalletRow | null>(null);
+  const [rechargeAmount, setRechargeAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'Adfali' | 'PayPal' | 'Stripe' | 'Masarat'>('PayPal');
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
   });
+  const handleRecharge = async () => {
+    if (!selectedWallet || !rechargeAmount) return;
+    
+    try {
+      setLoading(true);
+      const amount = parseFloat(rechargeAmount);
+      if (isNaN(amount)) {
+        throw new Error('Please enter a valid amount');
+      }
+  
+      const response = await walletsService.addFunds({
+        walletId: (selectedWallet.id).toString(), // Pass the walletId
+        amount,
+        currency: 'LYD',
+        description: `Wallet recharge for ${selectedWallet.name}`,
+        paymentMethod
+      });
+  
+      toast.success(`Successfully recharged ${amount} LYD to ${selectedWallet.name}'s wallet`);
+      setRechargeDialogOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to recharge wallet');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const table = useReactTable({
     data,
@@ -1071,6 +1325,16 @@ export function WalletTable({ data }: { data: WalletRow[] }) {
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => {
+                setSelectedWallet(row.original);
+                setRechargeDialogOpen(true);
+              }}
+            >
+              <PlusCircle className="w-4 h-4 text-green-500" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => toast.error(`تم حذف محفظة ${row.original.name}`)}
             >
               <IconTrash />
@@ -1097,6 +1361,80 @@ export function WalletTable({ data }: { data: WalletRow[] }) {
 
   return (
     <div>
+         <Dialog open={rechargeDialogOpen} onOpenChange={setRechargeDialogOpen}>
+         <DialogContent className={`
+  fixed inset-0 m-auto 
+  z-[1000] 
+  w-[90%] max-w-md 
+  p-6 
+  bg-white dark:bg-gray-800 
+  rounded-lg 
+  shadow-xl
+  border border-gray-200 dark:border-gray-700
+  overflow-visible // Add this to allow select dropdown to overflow
+`}>
+          <DialogTitle className="text-xl font-bold mb-2">
+            إعادة شحن المحفظة
+          </DialogTitle>
+          <DialogDescription className="mb-4 text-gray-600 dark:text-gray-300">
+            إعادة شحن محفظة {selectedWallet?.name}
+          </DialogDescription>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">المبلغ</label>
+              <Input
+                type="number"
+                value={rechargeAmount}
+                onChange={(e) => setRechargeAmount(e.target.value)}
+                placeholder="أدخل المبلغ"
+                className="w-full"
+              />
+            </div>
+
+            <div className="relative ">
+  <label className="block text-sm font-medium mb-1">طريقة الدفع</label>
+  <Select
+    value={paymentMethod}
+    onValueChange={(value: 'Adfali' | 'PayPal' | 'Stripe' | 'Masarat') => 
+      setPaymentMethod(value)
+    }
+  >
+    <SelectTrigger className="w-full">
+      <SelectValue placeholder="اختر طريقة الدفع" />
+    </SelectTrigger>
+    {/* Wrap SelectContent in Portal */}
+    <Portal>
+      <SelectContent className="z-[1001] bg-white border border-gray-200 rounded-md shadow-lg mt-1">
+        <SelectItem value="Adfali">Adfali</SelectItem>
+        <SelectItem value="PayPal">PayPal</SelectItem>
+        <SelectItem value="Stripe">Stripe</SelectItem>
+        <SelectItem value="Masarat">Masarat</SelectItem>
+      </SelectContent>
+    </Portal>
+  </Select>
+</div> <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setRechargeDialogOpen(false)}
+                className="px-4"
+              >
+                إلغاء
+              </Button>
+              <Button
+                onClick={handleRecharge}
+                disabled={loading || !rechargeAmount}
+                className="px-4"
+              >
+                {loading ? 'جاري المعالجة...' : 'تأكيد الشحن'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+        
+        {/* Backdrop with blur effect */}
+        <DialogOverlay className="fixed inset-0 z-[999] bg-black/50 backdrop-blur-sm" />
+      </Dialog>
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -1137,6 +1475,7 @@ export function WalletTable({ data }: { data: WalletRow[] }) {
           )}
         </TableBody>
       </Table>
+    
 
       <div className="flex items-center justify-between px-2 mt-4">
         <div className="flex items-center gap-2">
@@ -1181,6 +1520,8 @@ export function WalletTable({ data }: { data: WalletRow[] }) {
           </select>
         </div>
       </div>
+
+
     </div>
   );
 }

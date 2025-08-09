@@ -159,3 +159,54 @@ body {
       rgb(var(--background-end-rgb))
     rgb(var(--background-start-rgb)));
 }
+
+
+
+/* Add these styles to your CSS */
+.SelectTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 6px;
+  padding: 0 16px;
+  font-size: 14px;
+  line-height: 1;
+  height: 35px;
+  gap: 5px;
+  background-color: white;
+  border: 1px solid #e2e8f0;
+}
+
+.SelectTrigger:hover {
+  background-color: #f8fafc;
+}
+
+.SelectTrigger:focus {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5);
+}
+
+.SelectContent {
+  overflow: hidden;
+  background-color: white;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  z-index: 1001;
+}
+
+.SelectItem {
+  font-size: 14px;
+  line-height: 1;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  height: 35px;
+  padding: 0 35px 0 25px;
+  position: relative;
+  user-select: none;
+}
+
+.SelectItem:hover {
+  background-color: #f8fafc;
+  color: #1e293b;
+}

@@ -19,6 +19,24 @@ export type WalletRow = {
   walletId: string;
 };
 
+export type AddFundsRequest = {
+  walletId: string;  // Add this
+
+  amount: number;
+  currency: string;
+  description: string;
+  paymentMethod: 'Adfali' | 'PayPal' | 'Stripe' | 'Masarat';
+};
+
+export type TransactionResponse = {
+  id: string;
+  walletId: string;
+  amount: number;
+  currency: string;
+  timestamp: string;
+  description: string;
+};
+
 export const walletsService = {
   async getAllWallets(): Promise<WalletRow[]> {
     try {
@@ -45,7 +63,7 @@ export const walletsService = {
         try {
           const userDetails = await usersService.getUserById(wallet.userId);
           walletRows.push({
-            id: Number(wallet.userId), // Convert string ID to number
+            id: this.convertUserIdToNumber(wallet.userId),
             name: `${userDetails.firstName || ''} ${userDetails.lastName || ''}`.trim() || 'Unknown User',
             balance: `${wallet.amount} ${wallet.currency}`,
             registrationDate: new Date().toLocaleDateString(),
@@ -55,7 +73,7 @@ export const walletsService = {
         } catch (userError) {
           console.error(`Failed to fetch user details for wallet ${wallet.walletId}`, userError);
           walletRows.push({
-            id: Number(wallet.userId), // Convert string ID to number
+            id: this.convertUserIdToNumber(wallet.userId),
             name: 'Unknown User',
             balance: `${wallet.amount} ${wallet.currency}`,
             registrationDate: new Date().toLocaleDateString(),
@@ -103,5 +121,50 @@ export const walletsService = {
       }
       throw new Error('An unexpected error occurred');
     }
+  },
+
+  async addFunds(request: AddFundsRequest): Promise<TransactionResponse> {
+    try {
+      const token = authService.getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+  
+      const response = await axios.post<TransactionResponse>(
+        `${import.meta.env.VITE_API_URL}/Wallets/add-funds`, // Use walletId in URL
+        {
+          amount: request.amount,
+          currency: request.currency,
+          description: request.description,
+          paymentMethod: request.paymentMethod
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        }
+      );
+  
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.message || 'Failed to add funds');
+      }
+      throw new Error('An unexpected error occurred');
+    }
+  },
+
+  // Helper function to convert string ID to number
+   convertUserIdToNumber(userId: string): number {
+    // Simple hash function to convert string to number
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      const char = userId.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash);
   }
 };
