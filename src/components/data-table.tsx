@@ -168,7 +168,7 @@ interface DataTableProps<TData> {
   columns: ColumnDef<TData>[];
 }
 
-function DataTable<TData extends { id: string  }>({
+export function DataTable<TData extends { id: string  }>({
   data,
   columns,
 }: DataTableProps<TData>) {

@@ -9,6 +9,7 @@ import Subscription from "./components/Admin/Subsecription";
 import WalletManagement from "./components/Admin/Wallet";
 import SubscriptionPlans from "./components/Admin/subscription-plans";
 import Bookings from "./components/Admin/Booking";
+import Locations from "./components/Admin/Locations";
 
 // 🚀 Lazy Load Components
 const LoginPage = React.lazy(() => import("./components/Login"));
@@ -110,6 +111,14 @@ function App() {
           element={
             <Suspense fallback={<PageLoader />}>
               <WalletManagement />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/Admin/Locations"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <Locations />
             </Suspense>
           }
         />

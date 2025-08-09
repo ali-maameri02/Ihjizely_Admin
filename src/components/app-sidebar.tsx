@@ -11,6 +11,9 @@ import {
   IconReservedLine,
   IconCalendarClock,
   IconReport,
+  IconBrandCitymapper,
+  IconLocation,
+  IconLocationPlus,
 } from "@tabler/icons-react";
 import logo from "../assets/ihjzlyapplogo.png";
 import { cn } from "@/lib/utils";
@@ -70,6 +73,11 @@ const data = {
       title: "إدارة التقارير",
       url: "/Admin/reports",
       icon: IconReport,
+    },
+    {
+      title: "إدارة المواقع و المدن",
+      url: "/Admin/Locations",
+      icon: IconLocationPlus,
     },
     {
       title: "إعدادات",
