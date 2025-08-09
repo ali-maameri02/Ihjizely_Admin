@@ -17,7 +17,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { IconThumbDownFilled, IconThumbUpFilled, IconTrash } from "@tabler/icons-react";
+import { IconBarrierBlock, IconBlocks, IconThumbDownFilled, IconThumbUpFilled, IconTrash, IconUserOff } from "@tabler/icons-react";
 import { InfoIcon, PlusCircle, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
 import Swal from 'sweetalert2';
 
@@ -465,7 +465,7 @@ export default function UserTable({ data }: { data: UserRow[] }) {
     )}
     disabled={loading}
   >
-    <ThumbsDownIcon className="w-4 h-4 text-red-500" />
+    <IconUserOff className="w-4 h-4 text-red-500" />
   </Button>
 )}
           
