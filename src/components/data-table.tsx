@@ -104,6 +104,8 @@ export const subscriptionSchema = z.object({
 export const walletSchema = z.object({
   id: z.number(),
   name: z.string(),
+  walletId: z.string(), // Add this line
+
   balance: z.string(),
   registrationDate: z.string(),
   email: z.string(),
@@ -1249,32 +1251,40 @@ export function WalletTable({ data }: { data: WalletRow[] }) {
     pageIndex: 0,
     pageSize: 10,
   });
-  const handleRecharge = async () => {
-    if (!selectedWallet || !rechargeAmount) return;
-    
-    try {
-      setLoading(true);
-      const amount = parseFloat(rechargeAmount);
-      if (isNaN(amount)) {
-        throw new Error('Please enter a valid amount');
-      }
+ // In your WalletTable component
+// In your WalletTable component
+const handleRecharge = async () => {
+  if (!selectedWallet || !rechargeAmount) return;
   
-      const response = await walletsService.addFunds({
-        walletId: (selectedWallet.id).toString(), // Pass the walletId
-        amount,
-        currency: 'LYD',
-        description: `Wallet recharge for ${selectedWallet.name}`,
-        paymentMethod
-      });
-  
-      toast.success(`Successfully recharged ${amount} LYD to ${selectedWallet.name}'s wallet`);
-      setRechargeDialogOpen(false);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to recharge wallet');
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    const amount = parseFloat(rechargeAmount);
+    if (isNaN(amount) || amount <= 0) {
+      throw new Error('Please enter a valid positive amount');
     }
-  };
+
+    await walletsService.addFunds({
+      walletId: selectedWallet.walletId, // Use walletId instead of id
+      amount: amount,
+      currency: 'LYD',
+      description: `Admin recharge for ${selectedWallet.name}`
+    });
+
+    toast.success(`Successfully added ${amount} LYD to ${selectedWallet.name}'s wallet`);
+    setRechargeDialogOpen(false);
+    setRechargeAmount('');
+    
+  } catch (error) {
+    console.error('Recharge error:', error);
+    let errorMessage = 'Failed to add funds';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    toast.error(errorMessage);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const table = useReactTable({
     data,

@@ -99,6 +99,7 @@ export default function WalletManagement() {
       // Update local state
       const walletRow: WalletRow = {
         id: walletData.length + 1,
+        walletId: newWallet.walletId,
         name: `${selectedUser.firstName} ${selectedUser.lastName}`,
         balance: `${newWallet.amount} ${newWallet.currency}`,
         registrationDate: new Date().toLocaleDateString('en-GB'),

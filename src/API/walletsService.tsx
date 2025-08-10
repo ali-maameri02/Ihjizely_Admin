@@ -12,20 +12,18 @@ export type Wallet = {
 
 export type WalletRow = {
   id: number;
+  walletId: string; // Add this
   name: string;
   balance: string;
   registrationDate: string;
   email: string;
-  walletId: string;
 };
-
 export type AddFundsRequest = {
-  walletId: string;  // Add this
-
+  walletId: string;  // Changed from walletId to userId
   amount: number;
   currency: string;
   description: string;
-  paymentMethod: 'Adfali' | 'PayPal' | 'Stripe' | 'Masarat';
+  paymentMethod?: 'Adfali' | 'PayPal' | 'Stripe' | 'Masarat'; // Made optional
 };
 
 export type TransactionResponse = {
@@ -64,21 +62,21 @@ export const walletsService = {
           const userDetails = await usersService.getUserById(wallet.userId);
           walletRows.push({
             id: this.convertUserIdToNumber(wallet.userId),
+            walletId: wallet.walletId, // Add this line
             name: `${userDetails.firstName || ''} ${userDetails.lastName || ''}`.trim() || 'Unknown User',
             balance: `${wallet.amount} ${wallet.currency}`,
             registrationDate: new Date().toLocaleDateString(),
-            email: userDetails.email || `${wallet.userId.substring(0, 8)}@example.com`,
-            walletId: wallet.walletId
+            email: userDetails.email || `${wallet.userId.substring(0, 8)}@example.com`
           });
         } catch (userError) {
           console.error(`Failed to fetch user details for wallet ${wallet.walletId}`, userError);
           walletRows.push({
             id: this.convertUserIdToNumber(wallet.userId),
+            walletId: wallet.walletId, // Add this line
             name: 'Unknown User',
             balance: `${wallet.amount} ${wallet.currency}`,
             registrationDate: new Date().toLocaleDateString(),
-            email: `${wallet.userId.substring(0, 8)}@example.com`,
-            walletId: wallet.walletId
+            email: `${wallet.userId.substring(0, 8)}@example.com`
           });
         }
       }
@@ -130,13 +128,22 @@ export const walletsService = {
         throw new Error('No authentication token found');
       }
   
+      // Validate the request
+      if (!request.walletId) {
+        throw new Error('Wallet ID is required');
+      }
+      if (isNaN(request.amount) || request.amount <= 0) {
+        throw new Error('Amount must be a positive number');
+      }
+  
+      const url = `${import.meta.env.VITE_API_URL}/Transactions/admin/add-funds/${request.walletId}`;
+  
       const response = await axios.post<TransactionResponse>(
-        `${import.meta.env.VITE_API_URL}/Wallets/add-funds`, // Use walletId in URL
+        url,
         {
           amount: request.amount,
-          currency: request.currency,
-          description: request.description,
-          paymentMethod: request.paymentMethod
+          currency: request.currency || 'LYD',
+          description: request.description || 'Admin funds addition'
         },
         {
           headers: {
@@ -150,20 +157,36 @@ export const walletsService = {
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        throw new Error(error.response?.data?.message || 'Failed to add funds');
+        let errorMessage = 'Failed to add funds';
+        
+        if (error.response) {
+          switch (error.response.status) {
+            case 404:
+              errorMessage = 'Wallet not found';
+              break;
+            case 401:
+              errorMessage = 'Unauthorized';
+              break;
+            case 400:
+              errorMessage = error.response.data?.message || 'Invalid request data';
+              break;
+            default:
+              errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
       throw new Error('An unexpected error occurred');
     }
   },
 
-  // Helper function to convert string ID to number
-   convertUserIdToNumber(userId: string): number {
-    // Simple hash function to convert string to number
+  convertUserIdToNumber(userId: string): number {
     let hash = 0;
     for (let i = 0; i < userId.length; i++) {
       const char = userId.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
+      hash = hash & hash;
     }
     return Math.abs(hash);
   }
