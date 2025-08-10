@@ -32,7 +32,6 @@ import {
   ShieldAlertIcon,
   ShieldCheckIcon,
   UserIcon,
-  PhoneIcon,
   MailIcon,
   CalendarIcon,
 
