@@ -10,6 +10,7 @@ import WalletManagement from "./components/Admin/Wallet";
 import SubscriptionPlans from "./components/Admin/subscription-plans";
 import Bookings from "./components/Admin/Booking";
 import Locations from "./components/Admin/Locations";
+import Reports from "./components/Admin/Reports";
 
 // 🚀 Lazy Load Components
 const LoginPage = React.lazy(() => import("./components/Login"));
@@ -106,15 +107,16 @@ function App() {
             </Suspense>
           }
         />
-        <Route
-          path="/Admin/reports"
-          element={
-            <Suspense fallback={<PageLoader />}>
-              <WalletManagement />
-            </Suspense>
-          }
-        />
-        <Route
+<Route
+  path="/Admin/reports"
+  element={
+    <Suspense fallback={<PageLoader />}>
+      <Reports />
+    </Suspense>
+  }
+>
+  <Route path=":id" element={null} /> {/* This enables the nested route */}
+</Route>       <Route
           path="/Admin/Locations"
           element={
             <Suspense fallback={<PageLoader />}>
