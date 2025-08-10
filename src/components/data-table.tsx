@@ -20,7 +20,23 @@ import { CSS } from "@dnd-kit/utilities";
 import { IconThumbDownFilled, IconThumbUpFilled, IconTrash, IconUserOff } from "@tabler/icons-react";
 import { InfoIcon, PlusCircle, ThumbsUpIcon } from "lucide-react";
 import Swal from 'sweetalert2';
+import {
+  DialogFooter,
+  DialogHeader,
 
+} from './ui/dialog';
+
+import {
+  
+  AlertTriangleIcon,
+  ShieldAlertIcon,
+  ShieldCheckIcon,
+  UserIcon,
+  PhoneIcon,
+  MailIcon,
+  CalendarIcon,
+
+} from 'lucide-react';
 import {
   ColumnDef,
   flexRender,
@@ -255,6 +271,9 @@ export default function UserTable({ data }: { data: UserRow[] }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState<'all' | 'blocked' | 'unblocked'>('all');
   const [loading, setLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [warningCounts, setWarningCounts] = useState<Record<string, number>>({});
   const itemsPerPage = 10;
 
   // Filter data based on active tab
@@ -271,17 +290,41 @@ export default function UserTable({ data }: { data: UserRow[] }) {
   const endIndex = startIndex + itemsPerPage;
   const paginatedData = filteredData.slice(startIndex, endIndex);
 
-  // In your handleBlockUser function:
+  const handleInfoClick = async (user: UserRow) => {
+    try {
+      setLoading(true);
+      const warningKey = `block-warning-${user.id}`;
+      const countString = localStorage.getItem(warningKey); // Get the string or null
+      const count = countString ? parseInt(countString) : 0; // Properly handle null case
+      
+      const userDetails = await usersService.getUserById(user.id);
+      
+      setSelectedUser({
+        ...user,
+        ...userDetails,
+      });
+      
+      setWarningCounts(prev => ({
+        ...prev,
+        [user.id]: count
+      }));
+      
+      setIsDialogOpen(true);
+    } catch (error) {
+      toast.error('Failed to load user details');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleBlockUser = async (userId: string, userName: string) => {
     try {
       setLoading(true);
-      
-      // Get the user's current warning count from localStorage
       const warningKey = `block-warning-${userId}`;
-      const warningCount = parseInt(localStorage.getItem(warningKey) || '0', 10);
-  
+      const warningCountString = localStorage.getItem(warningKey);
+      const warningCount = warningCountString ? parseInt(warningCountString) : 0;
       if (warningCount < 2) {
-        // First or second warning
         await Swal.fire({
           title: 'تحذير',
           text: `سيتم حظر المستخدم ${userName} بعد ${2 - warningCount} تحذير${warningCount === 1 ? '' : 'ين'}`,
@@ -290,12 +333,10 @@ export default function UserTable({ data }: { data: UserRow[] }) {
           confirmButtonColor: '#3085d6',
         });
   
-        // Increment the warning count
         localStorage.setItem(warningKey, (warningCount + 1).toString());
         return;
       }
   
-      // Third attempt - proceed with blocking
       const confirmResult = await Swal.fire({
         title: 'تأكيد الحظر',
         text: `سيتم حظر المستخدم ${userName} نهائياً!`,
@@ -310,8 +351,6 @@ export default function UserTable({ data }: { data: UserRow[] }) {
       if (!confirmResult.isConfirmed) return;
   
       await usersService.blockUser(userId);
-      
-      // Reset the warning count after blocking
       localStorage.removeItem(warningKey);
       
       await Swal.fire({
@@ -320,9 +359,9 @@ export default function UserTable({ data }: { data: UserRow[] }) {
         icon: 'success',
         confirmButtonText: 'حسناً'
       });
-      await usersService.getAllUsers();
-
-  
+      
+      // Refresh data
+      window.location.reload();
     } catch (error) {
       console.error('Block user failed:', error);
       let errorMessage = 'فشل في حظر المستخدم';
@@ -374,9 +413,8 @@ export default function UserTable({ data }: { data: UserRow[] }) {
         confirmButtonText: 'حسناً'
       });
   
-      // Refresh data or update state
-       await usersService.getAllUsers();
-      
+      // Refresh data
+      window.location.reload();
     } catch (error) {
       await Swal.fire({
         title: 'خطأ',
@@ -388,6 +426,7 @@ export default function UserTable({ data }: { data: UserRow[] }) {
       setLoading(false);
     }
   };
+
   const columns: ColumnDef<UserRow>[] = [
     {
       accessorKey: "name",
@@ -439,47 +478,58 @@ export default function UserTable({ data }: { data: UserRow[] }) {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => toast.info(`تفاصيل ${row.original.name}`)}
+            onClick={() => handleInfoClick(row.original)}
           >
-            <InfoIcon />
+            <InfoIcon className="w-4 h-4 text-blue-500" />
           </Button>
           
           {row.original.isBlocked ? (
-  <Button
-    variant="ghost"
-    size="icon"
-    onClick={() => handleUnblockUser(
-      row.original.id,
-      row.original.name
-    )}
-    disabled={loading}
-  >
-    <ThumbsUpIcon className="w-4 h-4 text-green-500" />
-  </Button>
-) : (
-  <Button
-    variant="ghost"
-    size="icon"
-    onClick={() => handleBlockUser(
-      row.original.id,
-      row.original.name
-    )}
-    disabled={loading}
-  >
-    <IconUserOff className="w-4 h-4 text-red-500" />
-  </Button>
-)}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleUnblockUser(
+                row.original.id,
+                row.original.name
+              )}
+              disabled={loading}
+            >
+              <ThumbsUpIcon className="w-4 h-4 text-green-500" />
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleBlockUser(
+                row.original.id,
+                row.original.name
+              )}
+              disabled={loading}
+            >
+              <IconUserOff className="w-4 h-4 text-red-500" />
+            </Button>
+          )}
           
           <Button
             variant="ghost"
             size="icon"
             onClick={async () => {
-              const confirmDelete = window.confirm(`Are you sure you want to delete ${row.original.name}?`);
-              if (!confirmDelete) return;
+              const confirmDelete = await Swal.fire({
+                title: 'تأكيد الحذف',
+                text: `هل أنت متأكد من رغبتك في حذف ${row.original.name}؟`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'نعم، احذف',
+                cancelButtonText: 'إلغاء',
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+              });
+              
+              if (!confirmDelete.isConfirmed) return;
 
               try {
-                await usersService.deleteUser(row.original.id.toString());
+                await usersService.deleteUser(row.original.id);
                 toast.success('تم حذف المستخدم بنجاح');
+                window.location.reload();
               } catch (error) {
                 toast.error('فشل في حذف المستخدم');
               }
@@ -557,6 +607,136 @@ export default function UserTable({ data }: { data: UserRow[] }) {
           </div>
         </>
       )}
+
+      {/* User Details Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+  <DialogOverlay className="fixed inset-0 bg-white/80 backdrop-blur-sm z-[99999] flex items-center justify-center p-4">
+    <DialogContent className="container p-12 sm:max-w-[600px] w-full rounded-lg bg-white shadow-xl border border-gray-200">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <UserIcon className="w-5 h-5" />
+          <span>تفاصيل المستخدم</span>
+        </DialogTitle>
+        <DialogDescription>
+          عرض المعلومات الكاملة للمستخدم وسجل التحذيرات
+        </DialogDescription>
+      </DialogHeader>
+      
+      {selectedUser && (
+        <div className="grid gap-6 py-4">
+          {/* User Profile Section */}
+          <div className="flex items-start gap-4">
+            <Avatar className="w-20 h-20 border-2 border-purple-100">
+              <AvatarImage 
+                src={selectedUser.image || '/default-avatar.png'} 
+                alt={selectedUser.name} 
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/default-avatar.png';
+                }}
+              />
+              <AvatarFallback className="bg-purple-100 text-purple-600 text-2xl">
+                {selectedUser.name.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
+            
+            <div className="flex-1 grid gap-2">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xl font-semibold">{selectedUser.name}</h3>
+                <Badge variant={selectedUser.isBlocked ? "destructive" : "default"}>
+                  {selectedUser.isBlocked ? "محظور" : "نشط"}
+                </Badge>
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <ShieldAlertIcon className="w-4 h-4" />
+                <span>
+                  {warningCounts[selectedUser.id] || 0} تحذير(ات)
+                </span>
+              </div>
+              
+              {selectedUser.isBlocked && (
+                <div className="flex items-center gap-2 text-sm text-red-500">
+                  <AlertTriangleIcon className="w-4 h-4" />
+                  <span>هذا المستخدم محظور حالياً</span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* User Details Grid */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-2">
+              <UserIcon className="w-5 h-5 text-purple-500" />
+              <div>
+                <p className="text-sm text-gray-500">الاسم الكامل</p>
+                <p className="font-medium">
+                  {selectedUser.name}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <MailIcon className="w-5 h-5 text-purple-500" />
+              <div>
+                <p className="text-sm text-gray-500">البريد الإلكتروني</p>
+                <p className="font-medium">{selectedUser.email || 'غير متوفر'}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="w-5 h-5 text-purple-500" />
+              <div>
+                <p className="text-sm text-gray-500">تاريخ التسجيل</p>
+                <p className="font-medium">
+                  {new Date(selectedUser.date).toLocaleDateString() || 'غير معروف'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <ShieldCheckIcon className="w-5 h-5 text-purple-500" />
+              <div>
+                <p className="text-sm text-gray-500">الدور</p>
+                <p className="font-medium">{selectedUser.role || 'مستخدم'}</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Warning History Section */}
+          <div className="border-t pt-4">
+            <h4 className="flex items-center gap-2 font-medium mb-2">
+              <AlertTriangleIcon className="w-5 h-5 text-yellow-500" />
+              <span>سجل التحذيرات</span>
+            </h4>
+            
+            {warningCounts[selectedUser.id] > 0 ? (
+              <div className="space-y-2">
+                {Array.from({ length: warningCounts[selectedUser.id] }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm p-2 bg-yellow-50 rounded">
+                    <AlertTriangleIcon className="w-4 h-4 text-yellow-500" />
+                    <span>تحذير #{i + 1} - تاريخ: {new Date().toLocaleDateString()}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">لا يوجد تحذيرات لهذا المستخدم</p>
+            )}
+          </div>
+        </div>
+      )}
+      
+      <DialogFooter className="mt-4">
+        <Button 
+          variant="outline" 
+          onClick={() => setIsDialogOpen(false)}
+          className="border-purple-500 text-purple-600 hover:bg-purple-50"
+        >
+          إغلاق
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </DialogOverlay>
+</Dialog>
     </div>
   );
 }

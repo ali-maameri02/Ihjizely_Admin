@@ -77,7 +77,7 @@ export default function Locations() {
       const data = await locationsService.getAllLocations();
       setLocations(data);
       toast.success('تم إضافة الموقع بنجاح');
-      setFormData({ city: '', state: '', country: '' });
+      setFormData({ city: '', state: '', country: 'Libya' });
       setIsAddLocationModalOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to add location');
@@ -134,12 +134,12 @@ export default function Locations() {
   const columns: ColumnDef<LocationRow>[] = [
     {
       accessorKey: "city",
-      header: "المدينة",
+      header: "الحي",
       cell: ({ row }) => <span>{row.original.city}</span>,
     },
     {
       accessorKey: "state",
-      header: "الولاية",
+      header: "المدينة",
       cell: ({ row }) => <span>{row.original.state}</span>,
     },
     {
@@ -200,7 +200,7 @@ export default function Locations() {
             <form onSubmit={handleAddLocation} className="space-y-4 mt-4">
               <div className="space-y-2">
                 <Label htmlFor="city" className="text-right block">
-                  المدينة
+                  الحي
                 </Label>
                 <Input
                   id="city"
@@ -215,7 +215,7 @@ export default function Locations() {
 
               <div className="space-y-2">
                 <Label htmlFor="state" className="text-right block">
-                  الولاية
+                المدينة
                 </Label>
                 <Input
                   id="state"
@@ -235,10 +235,10 @@ export default function Locations() {
                 <Input
                   id="country"
                   name="country"
-                  value={formData.country}
+                  value="Libya"
                   onChange={handleInputChange}
                   required
-                  className="text-right"
+                  className="text-right "
                   placeholder="أدخل اسم البلد"
                 />
               </div>
