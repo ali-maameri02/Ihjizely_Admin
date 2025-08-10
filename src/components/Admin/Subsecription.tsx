@@ -11,7 +11,7 @@ export default function Subscription() {
   const [selectedFilters, setSelectedFilters] = useState(['businessOwnerId', 'planName', 'startDate']);
   const [apiData, setApiData] = useState<SubscriptionRow[]>([]); // Store original API data
   const [filteredData, setFilteredData] = useState<SubscriptionRow[]>([]); // Store filtered data
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setIsLoading] = useState(true);
   
   // Fetch data once on component mount
   useEffect(() => {

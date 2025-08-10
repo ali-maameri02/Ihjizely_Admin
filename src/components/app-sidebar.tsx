@@ -7,13 +7,8 @@ import {
   IconCurrencyDollar,
   IconSettings,
   IconMoon,
-  IconLogout2,
-  IconReservedLine,
-  IconCalendarClock,
-  IconReport,
-  IconBrandCitymapper,
-  IconLocation,
-  IconLocationPlus,
+  IconLogout2, IconCalendarClock,
+  IconReport, IconLocationPlus
 } from "@tabler/icons-react";
 import logo from "../assets/ihjzlyapplogo.png";
 import { cn } from "@/lib/utils";
@@ -27,10 +22,8 @@ import {
   SidebarMenuItem,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Link, Outlet, useNavigate } from "react-router-dom";
-import { DarkModeProvider } from './DarkModeContext.tsx'
+import { useNavigate } from "react-router-dom";
 import { authService } from '@/API/auth'; // Import your auth service
-import { CalendarCheck } from "lucide-react";
 
 const data = {
   user: {

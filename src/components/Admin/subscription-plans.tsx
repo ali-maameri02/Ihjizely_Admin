@@ -44,7 +44,7 @@ const formatDurationForDisplay = (duration: string): string => {
   
   // If it's in HH:MM:SS format
   if (/^\d{2}:\d{2}:\d{2}$/.test(duration)) {
-    const [hours, minutes, seconds] = duration.split(':');
+    const [hours] = duration.split(':');
     return `${hours} ساعة`;
   }
   

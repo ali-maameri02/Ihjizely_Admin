@@ -3,7 +3,6 @@ import { Input } from "@/components/ui/input"
 import { BellIcon, SearchIcon } from "lucide-react"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import logo from '../assets/ihjzlyapplogo.png'
-import { SidebarTrigger } from "./ui/sidebar"
 
 export function SiteHeader() {
   return (

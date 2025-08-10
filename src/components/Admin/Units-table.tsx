@@ -1,11 +1,11 @@
 // units.tsx
-import React, { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { UnitTable } from '../data-table';
 import { UnitRow, unitsService } from '@/API/UnitsService';
-import { DownloadCloudIcon, FilterIcon } from 'lucide-react';
+// import { DownloadCloudIcon, FilterIcon } from 'lucide-react';
 import { MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
-import { PropertyDetailsModal } from './PropertyDetailsModal';  // Adjust path as needed
+// import { PropertyDetailsModal } from './PropertyDetailsModal';  // Adjust path as needed
 export default function Units() {
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [loading, setLoading] = useState(true);

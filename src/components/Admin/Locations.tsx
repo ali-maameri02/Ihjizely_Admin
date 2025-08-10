@@ -1,5 +1,5 @@
 // locations.tsx
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { locationsService } from '@/API/LocationService';
 // import addLocationIcon from '../../assets/add_location.svg';
 import { DownloadCloudIcon, MoreVertical } from 'lucide-react';
@@ -53,7 +53,7 @@ export default function Locations() {
   }, []);
 
   const filteredLocations = locations.filter(location => {
-    const searchLower = searchQuery.toLowerCase();
+    // const searchLower = searchQuery.toLowerCase();
     return (
       location.city,
       location.state,

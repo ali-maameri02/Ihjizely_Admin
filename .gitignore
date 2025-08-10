@@ -136,3 +136,5 @@ Desktop.ini
 dist/
 dist-ssr/
 *.local
+# Local Netlify folder
+.netlify

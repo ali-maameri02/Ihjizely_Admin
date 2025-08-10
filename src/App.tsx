@@ -1,5 +1,5 @@
 import React, { Suspense } from "react";
-import { Route, Routes, Outlet, Link } from "react-router-dom";
+import { Route, Routes, Outlet } from "react-router-dom";
 import "@fontsource/poppins"; // Defaults to weight 400
 
 // 🔒 Protected Layout Component
@@ -18,14 +18,14 @@ const Dashboard = React.lazy(() => import("./components/Admin/Dashboard"));
 const UsersTable = React.lazy(() => import("./components/Admin/Users-table"));
 
 // 🧠 Custom Hook to Preload Components on Hover
-const usePreloadRoute = () => {
-  const preload = (path: string) => {
-    if (path === "/Admin") import("./components/Admin/Dashboard");
-    if (path === "/Admin/users") import("./components/Admin/Users-table");
-  };
+// const usePreloadRoute = () => {
+//   const preload = (path: string) => {
+//     if (path === "/Admin") import("./components/Admin/Dashboard");
+//     if (path === "/Admin/users") import("./components/Admin/Users-table");
+//   };
 
-  return preload;
-};
+//   return preload;
+// };
 
 // 🧱 Page Loader Component
 const PageLoader = () => (
@@ -43,7 +43,7 @@ const ProtectedLayoutComponent = () => (
 );
 
 function App() {
-  const preload = usePreloadRoute();
+  // const preload = usePreloadRoute();
 
   return (
     <Routes>

@@ -17,8 +17,8 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { IconBarrierBlock, IconBlocks, IconThumbDownFilled, IconThumbUpFilled, IconTrash, IconUserOff } from "@tabler/icons-react";
-import { InfoIcon, PlusCircle, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
+import { IconThumbDownFilled, IconThumbUpFilled, IconTrash, IconUserOff } from "@tabler/icons-react";
+import { InfoIcon, PlusCircle, ThumbsUpIcon } from "lucide-react";
 import Swal from 'sweetalert2';
 
 import {
@@ -46,12 +46,11 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import logo from '../assets/ihjzlyapplogo.png';
-import '../index.css'
+import '../index.css';
 import { Property, unitsService } from "@/API/UnitsService";
 import { useState } from "react";
 import { PropertyDetailsModal } from "./Admin/PropertyDetailsModal";
 import { subscriptionsService } from "@/API/SubscriptionsService";
-import { reservationService } from "@/API/ReservationService";
 import { walletsService } from "@/API/walletsService";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogOverlay, Portal } from "@radix-ui/react-dialog";
 import { Input } from "./ui/input";
@@ -1010,7 +1009,7 @@ export function UnitTable({ data }: { data: UnitRow[] }) {
   );
 }
 // Subscription-specific table
-export function SubscriptionTable({ data }: { data: SubscriptionRow[] }) {
+export function SubscriptionTable({ }: { data: SubscriptionRow[] }) {
   const [internalData, setInternalData] = React.useState<(SubscriptionRow & { ownerName: string })[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -1557,7 +1556,6 @@ export function BookingTable({ data }: { data: BookingRow[] }) {
   const handleStatusUpdate = async (bookingId: string, newStatus: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed') => {
     try {
       setLoading(true);
-      const updatedBooking = await reservationService.updateBookingStatus(bookingId, newStatus);
       
       setInternalData(prev => prev.map(booking => 
         booking.id === bookingId ? { ...booking, status: newStatus } : booking
@@ -1667,7 +1665,6 @@ export function BookingTable({ data }: { data: BookingRow[] }) {
       id: "actions",
       header: "الإجراءات",
       cell: ({ row }) => {
-        const isPending = row.original.status === 'Pending';
         const isConfirmed = row.original.status === 'Confirmed';
         
         return (

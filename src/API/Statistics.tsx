@@ -1,6 +1,6 @@
 // API/StatisticsService.ts
 import axios from 'axios';
-import { authService } from './auth';
+// import { authService } from './auth';
 import { reservationService } from './ReservationService';
 
 const API_URL = import.meta.env.VITE_API_URL;

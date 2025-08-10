@@ -9,9 +9,7 @@ import {
   DialogDescription,
   DialogOverlay,
   DialogPortal,
-  DialogTitle,
-  DialogTrigger
-} from '@radix-ui/react-dialog';
+  DialogTitle} from '@radix-ui/react-dialog';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -19,7 +17,7 @@ import {
   DropdownMenuPortal, 
   DropdownMenuTrigger 
 } from "../ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Avatar, AvatarFallback } from "../ui/avatar";
 import { SearchIcon, DownloadIcon, PlusIcon, UserIcon, X } from "lucide-react";
 import { walletsService } from "@/API/walletsService";
 
