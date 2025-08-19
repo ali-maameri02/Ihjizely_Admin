@@ -1,4 +1,7 @@
 import * as React from "react";
+import { Carousel } from 'react-responsive-carousel';
+import 'react-responsive-carousel/lib/styles/carousel.min.css';
+
 import {
   closestCenter,
   DndContext,
@@ -16,9 +19,19 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { CSS } from "@dnd-kit/utilities";
-import { IconThumbDownFilled, IconThumbUpFilled, IconTrash, IconUserOff } from "@tabler/icons-react";
-import { InfoIcon, PlusCircle, ThumbsUpIcon } from "lucide-react";
+import { IconTrash, IconUserOff } from "@tabler/icons-react";
+import { HomeIcon, InfoIcon, MapPinIcon, PlusCircle, ThumbsDownIcon, ThumbsUpIcon, TrashIcon, WalletIcon, XIcon } from "lucide-react";
 import Swal from 'sweetalert2';
 import {
   DialogFooter,
@@ -64,7 +77,6 @@ import logo from '../assets/ihjzlyapplogo.png';
 import '../index.css';
 import { Property, unitsService } from "@/API/UnitsService";
 import { useState } from "react";
-import { PropertyDetailsModal } from "./Admin/PropertyDetailsModal";
 import { subscriptionsService } from "@/API/SubscriptionsService";
 import { walletsService } from "@/API/walletsService";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogOverlay, Portal } from "@radix-ui/react-dialog";
@@ -94,6 +106,8 @@ export const unitSchema = z.object({
   subscriptionStatus: z.boolean(),
   registrationDate: z.string(),
   premiumSubscription: z.boolean(),
+  businessOwnerFirstName: z.string(),
+  businessOwnerLastName: z.string(),
 });
 
 
@@ -743,17 +757,26 @@ export default function UserTable({ data }: { data: UserRow[] }) {
 // Unit-specific table
 // UnitTable component in data-table.tsx
 
-export function UnitTable({ data }: { data: UnitRow[] }) {
-  const [filterType, setFilterType] = React.useState<string>("");
-  const [filterSubtype, setFilterSubtype] = React.useState<string>("");
-  const [activeTab, setActiveTab] = React.useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [internalData, setInternalData] = React.useState<UnitRow[]>(data);
-  const [loading, setLoading] = React.useState(false);
+interface UnitTableProps {
+  data: UnitRow[];
+}
+
+export function UnitTable({ data }: UnitTableProps) {
+  const [filterType, setFilterType] = useState<string>("");
+  const [filterSubtype, setFilterSubtype] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [internalData, setInternalData] = useState<UnitRow[]>(data);
+  const [loading, setLoading] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
-  const [pagination, setPagination] = React.useState({
+  const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 10,
+  });
+  const [deleteConfirmation, setDeleteConfirmation] = useState({
+    open: false,
+    unitId: null as string | null,
+    unitName: '',
   });
 
   const propertyTypes = unitsService.getPropertyTypes();
@@ -791,7 +814,7 @@ export function UnitTable({ data }: { data: UnitRow[] }) {
 
         if (filterType && !filterSubtype) {
           filteredData = filteredData.filter(item => 
-            item.type === filterType || item.type === filterType
+            item.type === filterType
           );
         }
 
@@ -816,10 +839,7 @@ export function UnitTable({ data }: { data: UnitRow[] }) {
     }
   };
 
-  const handleStatusUpdate = async (
-    propertyId: string, 
-    status: 'Accepted' | 'Refused' | 'Pending'
-  ) => {
+  const handleStatusUpdate = async (propertyId: string, status: 'Accepted' | 'Refused' | 'Pending') => {
     try {
       setLoading(true);
       
@@ -855,146 +875,143 @@ export function UnitTable({ data }: { data: UnitRow[] }) {
   const handleDeleteUnit = async (unitId: string, unitName: string) => {
     try {
       setLoading(true);
-      
-      setInternalData(prev => prev.filter(item => item.id.toString() !== unitId));
-      
       await unitsService.deleteUnit(unitId);
-      
+      setInternalData(prev => prev.filter(item => item.id.toString() !== unitId));
       toast.success(`تم حذف الوحدة "${unitName}" بنجاح`);
     } catch (error) {
-      setInternalData(data);
-      
-      toast.error(
-        error instanceof Error 
-          ? error.message 
-          : 'حدث خطأ أثناء حذف الوحدة'
-      );
+      toast.error(error instanceof Error ? error.message : 'حدث خطأ أثناء حذف الوحدة');
     } finally {
       setLoading(false);
+      setDeleteConfirmation({ open: false, unitId: null, unitName: '' });
     }
   };
 
+  const columns : ColumnDef<UnitRow>[] = [
+    {
+      accessorKey: "unitName",
+      header: "الوحدة",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <img 
+            src={row.original.image || '/placeholder-property.jpg'} 
+            className="rounded-md w-16 h-12 object-cover border" 
+            alt={row.original.unitName}
+            onError={(e) => {
+              e.currentTarget.src = '/placeholder-property.jpg';
+              e.currentTarget.onerror = null;
+            }}
+          />
+          <span className="font-medium">{row.original.unitName}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "owner",
+      header: "صاحب العمل",
+      cell: ({ row }) => (
+        <span>{row.original.businessOwnerFirstName} {row.original.businessOwnerLastName}</span>
+      ),
+    },
+    {
+      accessorKey: "location",
+      header: "الموقع",
+      cell: ({ row }) => <span>{row.original.location}</span>,
+    },
+    {
+      accessorKey: "status",
+      header: "الحالة",
+      cell: ({ row }) => (
+        <Badge 
+          variant={
+            row.original.status === 'Accepted' ? 'default' : 
+            row.original.status === 'Refused' ? 'destructive' : 'secondary'
+          }
+        >
+          {row.original.status === 'Accepted' ? 'مقبول' : 
+           row.original.status === 'Refused' ? 'مرفوض' : 'قيد الانتظار'}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "premiumSubscription",
+      header: "اشتراك مميز",
+      cell: ({ row }) => (
+        <Badge
+          style={{
+            backgroundColor: row.original.premiumSubscription ? "#45DB4F" : "red",
+            color: "white",
+          }}
+        >
+          {row.original.premiumSubscription ? "مفعل" : "غير مفعل"}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "registrationDate",
+      header: "تاريخ التسجيل",
+      cell: ({ row }) => <span>{row.original.registrationDate}</span>,
+    },
+    {
+      id: "actions",
+      header: "الإجراءات",
+      cell: ({ row }) => {
+        const isAccepted = row.original.status === 'Accepted';
+        const isRefused = row.original.status === 'Refused';
+        
+        return (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleViewDetails(row.original.id.toString())}
+            >
+              <InfoIcon className="w-4 h-4 text-blue-500" />
+            </Button>    
+            <Button
+              variant={isAccepted ? "default" : "ghost"}
+              size="icon"
+              onClick={() => handleStatusUpdate(
+                row.original.id.toString(), 
+                'Accepted'
+              )}
+              disabled={isAccepted}
+            >
+              <ThumbsUpIcon className={`w-4 h-4 ${isAccepted ? 'text-white' : 'text-green-500'}`} />
+            </Button>
+            
+            <Button
+              variant={isRefused ? "destructive" : "ghost"}
+              size="icon"
+              onClick={() => handleStatusUpdate(
+                row.original.id.toString(), 
+                'Refused'
+              )}
+              disabled={isRefused}
+            >
+              <ThumbsDownIcon className={`w-4 h-4 ${isRefused ? 'text-white' : 'text-red-500'}`} />
+            </Button>
+    
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeleteConfirmation({
+                open: true,
+                unitId: row.original.id.toString(),
+                unitName: row.original.unitName
+              })}
+              disabled={loading}
+            >
+              <TrashIcon className="w-4 h-4 text-red-500" />
+            </Button>
+          </div>
+        );
+      }
+    }
+  ];
+
   const table = useReactTable({
     data: internalData,
-    columns: [
-      {
-        accessorKey: "unitName",
-        header: "الوحدة",
-        cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <img 
-              src={row.original.image || logo} 
-              className="rounded-md w-16 h-12 object-cover border" 
-              alt={row.original.unitName}
-              onError={(e) => {
-                e.currentTarget.src = logo;
-                e.currentTarget.onerror = null;
-              }}
-            />
-            <span className="font-medium">{row.original.unitName}</span>
-          </div>
-        ),
-      },
-      {
-        accessorKey: "owner",
-        header: "صاحب العمل",
-        cell: ({ row }) => <span>{row.original.owner}</span>,
-      },
-      {
-        accessorKey: "location",
-        header: "الموقع",
-        cell: ({ row }) => <span>{row.original.location}</span>,
-      },
-      {
-        accessorKey: "status",
-        header: "الحالة",
-        cell: ({ row }) => (
-          <Badge 
-            variant={
-              row.original.status === 'Accepted' ? 'default' : 
-              row.original.status === 'Refused' ? 'destructive' : 'secondary'
-            }
-          >
-            {row.original.status === 'Accepted' ? 'مقبول' : 
-             row.original.status === 'Refused' ? 'مرفوض' : 'قيد الانتظار'}
-          </Badge>
-        ),
-      },
-      {
-        accessorKey: "premiumSubscription",
-        header: "اشتراك مميز",
-        cell: ({ row }) => (
-          <Badge
-            style={{
-              backgroundColor: row.original.premiumSubscription ? "#45DB4F" : "red",
-              color: "white",
-            }}
-          >
-            {row.original.premiumSubscription ? "مفعل" : "غير مفعل"}
-          </Badge>
-        ),
-      },
-      {
-        accessorKey: "registrationDate",
-        header: "تاريخ التسجيل",
-        cell: ({ row }) => <span>{row.original.registrationDate}</span>,
-      },
-      {
-        id: "actions",
-        header: "الإجراءات",
-        cell: ({ row }) => {
-          const isAccepted = row.original.status === 'Accepted';
-          const isRefused = row.original.status === 'Refused';
-          
-          return (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleViewDetails(row.original.id.toString())}
-              >
-                <InfoIcon className="w-4 h-4 text-blue-500" />
-              </Button>    
-              <Button
-                variant={isAccepted ? "default" : "ghost"}
-                size="icon"
-                onClick={() => handleStatusUpdate(
-                  row.original.id.toString(), 
-                  'Accepted'
-                )}
-                disabled={isAccepted}
-              >
-                <IconThumbUpFilled className={`w-4 h-4 ${isAccepted ? 'text-white' : 'text-green-500'}`} />
-              </Button>
-              
-              <Button
-                variant={isRefused ? "destructive" : "ghost"}
-                size="icon"
-                onClick={() => handleStatusUpdate(
-                  row.original.id.toString(), 
-                  'Refused'
-                )}
-                disabled={isRefused}
-              >
-                <IconThumbDownFilled className={`w-4 h-4 ${isRefused ? 'text-white' : 'text-red-500'}`} />
-              </Button>
-      
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleDeleteUnit(
-                  row.original.id.toString(),
-                  row.original.unitName
-                )}
-                disabled={loading}
-              >
-                <IconTrash className="w-4 h-4 text-red-500" />
-              </Button>
-            </div>
-          );
-        }
-      }
-    ],
+    columns,
     state: { 
       sorting,
       pagination,
@@ -1007,36 +1024,125 @@ export function UnitTable({ data }: { data: UnitRow[] }) {
     getSortedRowModel: getSortedRowModel(),
   });
 
+  const PropertyDetailsModal = ({ property, onClose }: { property: Property | null, onClose: () => void }) => {
+    if (!property) return null;
+
+    return (
+      <div className="fixed inset-0 backdrop-blur-xs flex items-center justify-center z-[99999] p-4">
+        <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">
+                تفاصيل العقار: {property.title}
+              </h2>
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <XIcon className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              <div className="col-span-1">
+              <div className="h-64">
+  <Carousel showThumbs={false} showStatus={false}>
+    {property.images?.map((image, index) => (
+      <div key={index}>
+        <img
+          src={image.url || '/placeholder-property.jpg'}
+          alt={`${property.title} - ${index + 1}`}
+          className="h-64 object-cover"
+          onError={(e) => {
+            e.currentTarget.src = '/placeholder-property.jpg';
+            e.currentTarget.onerror = null;
+          }}
+        />
+      </div>
+    ))}
+  </Carousel>
+</div>
+              </div>
+
+              <div className="col-span-1 space-y-4">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-lg mb-3 text-gray-800 border-b pb-2">
+                    المعلومات الأساسية
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <DetailItem icon={<HomeIcon className="w-5 h-5" />} label="النوع" value={property.type} />
+                    <DetailItem 
+  icon={<MapPinIcon className="w-5 h-5" />} 
+  label="الموقع" 
+  value={
+    typeof property.location === 'string' 
+      ? property.location 
+      : `${property.location.city}, ${property.location.state}`
+  } 
+/>                 
+                    <DetailItem icon={<WalletIcon className="w-5 h-5" />} label="السعر" value={`${property.price} ${property.currency || 'د.ك'}`} />
+                    <DetailItem icon={<UserIcon className="w-5 h-5" />} label="صاحب العمل" value={`${property.businessOwnerFirstName} ${property.businessOwnerLastName}`} />
+                  </div>
+                </div>
+
+                {property.description && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="font-semibold text-lg mb-3 text-gray-800 border-b pb-2">
+                      الوصف
+                    </h3>
+                    <p className="text-gray-600">{property.description}</p>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button variant="outline" onClick={onClose}>
+                    إغلاق
+                  </Button>
+                  <Button variant="default" className="bg-purple-600 hover:bg-purple-700">
+                    تحرير المعلومات
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const DetailItem = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) => (
+    <div className="flex items-start">
+      <div className="text-purple-600 mt-0.5 mr-2">{icon}</div>
+      <div>
+        <p className="text-sm font-medium text-gray-500">{label}</p>
+        <p className="font-semibold text-gray-800">{value || 'غير متوفر'}</p>
+      </div>
+    </div>
+  );
+
   return (
-    <div>
-      <div className="flex border-b mb-4">
-        <button
-          className={`px-4 py-2 font-medium ${activeTab === 'all' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('all')}
-        >
-          الكل
-        </button>
-        <button
-          className={`px-4 py-2 font-medium ${activeTab === 'pending' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('pending')}
-        >
-          قيد الانتظار
-        </button>
-        <button
-          className={`px-4 py-2 font-medium ${activeTab === 'approved' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('approved')}
-        >
-          المقبولة
-        </button>
-        <button
-          className={`px-4 py-2 font-medium ${activeTab === 'rejected' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('rejected')}
-        >
-          المرفوضة
-        </button>
+    <div className="space-y-4">
+      <div className="flex border-b">
+        {(['all', 'pending', 'approved', 'rejected'] as const).map((tab) => (
+          <button
+            key={tab}
+            className={`px-4 py-2 font-medium ${
+              activeTab === tab 
+                ? 'border-b-2 border-purple-500 text-purple-600' 
+                : 'text-gray-500'
+            }`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab === 'all' && 'الكل'}
+            {tab === 'pending' && 'قيد الانتظار'}
+            {tab === 'approved' && 'المقبولة'}
+            {tab === 'rejected' && 'المرفوضة'}
+          </button>
+        ))}
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label htmlFor="type-filter" className="block text-sm font-medium text-gray-700 mb-1 text-right">
             نوع الوحدة الرئيسي
@@ -1048,7 +1154,7 @@ export function UnitTable({ data }: { data: UnitRow[] }) {
               setFilterType(e.target.value);
               setFilterSubtype("");
             }}
-            className="border rounded px-3 py-1 w-full text-right"
+            className="border rounded px-3 py-2 w-full text-right"
             disabled={loading}
           >
             <option value="">الكل</option>
@@ -1068,13 +1174,13 @@ export function UnitTable({ data }: { data: UnitRow[] }) {
             id="subtype-filter"
             value={filterSubtype}
             onChange={(e) => setFilterSubtype(e.target.value)}
-            className="border rounded px-3 py-1 w-full text-right"
+            className="border rounded px-3 py-2 w-full text-right"
             disabled={!filterType || loading}
           >
             <option value="">الكل</option>
             {filterType && propertyTypes
               .find(type => type.type === filterType)
-              ?.subtypes.map(subtype => (
+              ?.subtypes?.map(subtype => (
                 <option key={subtype} value={subtype}>
                   {unitsService.getSubtypeLabel(subtype)}
                 </option>
@@ -1083,58 +1189,56 @@ export function UnitTable({ data }: { data: UnitRow[] }) {
         </div>
       </div>
 
-      {loading && (
+      {loading ? (
         <div className="flex justify-center items-center h-32">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
         </div>
-      )}
-
-      {!loading && (
+      ) : (
         <>
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.length > 0 ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <TableHead key={header.id}>
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                      </TableHead>
                     ))}
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">
-                    {filterSubtype 
-                      ? `لا توجد وحدات من نوع ${unitsService.getSubtypeLabel(filterSubtype)}`
-                      : "لا توجد بيانات متاحة"}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && "selected"}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                      {filterSubtype 
+                        ? `لا توجد وحدات من نوع ${unitsService.getSubtypeLabel(filterSubtype)}`
+                        : "لا توجد بيانات متاحة"}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-          <div className="flex items-center justify-between px-2 mt-4">
+          <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -1165,7 +1269,7 @@ export function UnitTable({ data }: { data: UnitRow[] }) {
               <select
                 value={table.getState().pagination.pageSize}
                 onChange={e => {
-                  table.setPageSize(Number(e.target.value))
+                  table.setPageSize(Number(e.target.value));
                 }}
                 className="border rounded px-2 py-1"
               >
@@ -1179,6 +1283,35 @@ export function UnitTable({ data }: { data: UnitRow[] }) {
           </div>
         </>
       )}
+
+      <AlertDialog 
+        open={deleteConfirmation.open} 
+        onOpenChange={(open) => {
+          if (!open) setDeleteConfirmation({ open: false, unitId: null, unitName: '' });
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد أنك تريد حذف الوحدة "{deleteConfirmation.unitName}"؟ هذا الإجراء لا يمكن التراجع عنه.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (deleteConfirmation.unitId) {
+                  handleDeleteUnit(deleteConfirmation.unitId, deleteConfirmation.unitName);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <PropertyDetailsModal 
         property={selectedProperty}

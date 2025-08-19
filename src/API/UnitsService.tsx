@@ -32,6 +32,8 @@ export type Property = {
     details: Record<string, any>;
     images?: Array<{ url: string }>;
     status?: PropertyStatus;
+    businessOwnerFirstName: string;
+    businessOwnerLastName: string;
 };
 
 export type UnitRow = {
@@ -46,6 +48,8 @@ export type UnitRow = {
   registrationDate: string;
   premiumSubscription: boolean;
   propertyType: string;
+  businessOwnerFirstName: string;
+  businessOwnerLastName: string;
 };
 
 export const unitsService = {
@@ -256,7 +260,9 @@ export const unitsService = {
             subscriptionStatus: property.status === 'Accepted',
             registrationDate: new Date(property.createdAt).toLocaleDateString(),
             premiumSubscription: property.discount ? property.discount.value > 0 : false,
-            propertyType: property.type
+            propertyType: property.type,
+            businessOwnerFirstName: property.businessOwnerFirstName,
+            businessOwnerLastName: property.businessOwnerLastName
         };
     },
 
