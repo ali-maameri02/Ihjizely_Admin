@@ -26,7 +26,7 @@ export default function Bookings() {
           endDate: booking.endDate,
           totalPrice: booking.totalPrice,
           currency: booking.currency,
-          status: booking.status,
+          status: booking.status === "Cancelled" ? "Rejected" : booking.status,
           reservedAt: booking.reservedAt,
           propertyDetails: booking.propertyDetails
         }));

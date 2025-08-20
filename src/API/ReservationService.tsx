@@ -24,7 +24,7 @@ export interface Booking {
   endDate: string;
   totalPrice: number;
   currency: string;
-  status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed';
+  status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed' | 'Rejected';
   reservedAt: string;
   propertyDetails?: PropertyDetails;
 }
