@@ -148,30 +148,40 @@ export const unitsService = {
           const token = authService.getAuthToken();
           if (!token) throw new Error('No authentication token found');
           
+          // Use the API endpoint for filtering by type
+          const response = await axios.get<Property[]>(
+            `${import.meta.env.VITE_API_URL}/AllProperties/by-type/${type}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+              }
+            }
+          );
+          
+          return response.data.map(property => 
+            this.transformPropertyToUnitRow(property)
+          );
+        } catch (error) {
+          // Fallback to client-side filtering if the endpoint fails
+          console.warn('API endpoint failed, falling back to client-side filtering:', error);
+          
+          const allUnits = await this.getAllUnits();
+          
+          // Check if it's a main type
           const isMainType = this.getPropertyTypes().some(t => t.type === type);
           
           if (isMainType) {
-            const allUnits = await this.getAllUnits();
             return allUnits.filter(unit => unit.propertyType === type);
           } else {
-            const mainType = this.getPropertyTypes().find(t => 
-              t.subtypes.includes(type)
-            )?.type;
-            
-            if (!mainType) {
-              throw new Error(`Invalid property type: ${type}`);
-            }
-            
-            const mainTypeUnits = await this.getAllUnits();
-            return mainTypeUnits.filter(unit => 
+            // For subtypes, filter by the subtype label
+            return allUnits.filter(unit => 
               unit.type === this.getSubtypeLabel(type) || 
               unit.propertyType === type
             );
           }
-        } catch (error) {
-          throw this.handleApiError(error, 'Failed to fetch units by type');
         }
-    },
+      },
 
     async updatePropertyStatus(
         id: string, 
@@ -289,18 +299,18 @@ export const unitsService = {
                 subtypes: [
                     'Apartment',
                     'Chalet',
-                    'Hotel Room',
-                    'Hotel Apartment',
+                    'HotelRoom',
+                    'HotelApartment',
                     'Resort',
-                    'Rest House'
+                    'RestHouse'
                 ]
             },
             {
                 type: 'Hall',
                 label: 'قاعات',
                 subtypes: [
-                    'Event Hall Small',
-                    'Event Hall Large',
+                    'EventHallSmall',
+                    'EventHallLarge',
                     'Meeting Room'
                 ]
             }
@@ -311,12 +321,12 @@ export const unitsService = {
         const subtypeMap: Record<string, string> = {
             'Apartment': 'شقق',
             'Chalet': 'شاليهات',
-            'Hotel Room': 'غرف فندقية',
-            'Hotel Apartment': 'شقق فندقية',
+            'HotelRoom': 'غرف فندقية',
+            'HotelApartment': 'شقق فندقية',
             'Resort': 'منتجعات',
-            'Rest House': 'بيوت ريفية',
-            'Event Hall Small': 'قاعة أحداث صغيرة',
-            'Event Hall Large': 'قاعة أحداث كبيرة',
+            'RestHouse': 'بيوت ريفية',
+            'EventHallSmall': 'قاعة أحداث صغيرة',
+            'EventHallLarge': 'قاعة أحداث كبيرة',
             'Meeting Room': 'غرفة اجتماعات'
         };
         return subtypeMap[subtype] || subtype;

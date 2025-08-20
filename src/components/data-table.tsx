@@ -1,6 +1,4 @@
 import * as React from "react";
-import { Carousel } from 'react-responsive-carousel';
-import 'react-responsive-carousel/lib/styles/carousel.min.css';
 
 import {
   closestCenter,
@@ -31,7 +29,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { CSS } from "@dnd-kit/utilities";
 import { IconTrash, IconUserOff } from "@tabler/icons-react";
-import { HomeIcon, InfoIcon, MapPinIcon, PlusCircle, ThumbsDownIcon, ThumbsUpIcon, TrashIcon, WalletIcon, XIcon } from "lucide-react";
+import {  InfoIcon,  PlusCircle, ThumbsDownIcon, ThumbsUpIcon, TrashIcon } from "lucide-react";
 import Swal from 'sweetalert2';
 import {
   DialogFooter,
@@ -83,6 +81,8 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogOverlay, P
 import { Input } from "./ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { usersService } from "@/API/UsersService";
+import { PropertyDetailsModal } from "./Admin/PropertyDetailsModal";
+import { reservationService } from "@/API/ReservationService";
 // Define schemas
 export const userSchema = z.object({
   id: z.string(), // Change from number to string
@@ -148,7 +148,7 @@ export const bookingSchema = z.object({
   endDate: z.string(),
   totalPrice: z.number(),
   currency: z.string(),
-  status: z.enum(['Pending', 'Confirmed', 'Cancelled', 'Completed']),
+  status: z.enum(['Pending', 'Confirmed', 'Rejected', 'Completed']),
   reservedAt: z.string(),
   propertyDetails: z.object({
     id: z.string(),
@@ -790,12 +790,16 @@ export function UnitTable({ data }: UnitTableProps) {
       try {
         setLoading(true);
         let filteredData: UnitRow[] = [];
-
+  
+        // Use the API endpoint for filtering by type/subtype
         if (filterSubtype) {
+          // For subtypes, use the API endpoint
           filteredData = await unitsService.getUnitsByType(filterSubtype);
         } else if (filterType) {
+          // For main types, also use the API endpoint
           filteredData = await unitsService.getUnitsByType(filterType);
         } else {
+          // For status-based filtering, use the existing methods
           switch (activeTab) {
             case 'pending':
               filteredData = await unitsService.getUnitsByStatus('Pending');
@@ -811,13 +815,7 @@ export function UnitTable({ data }: UnitTableProps) {
               break;
           }
         }
-
-        if (filterType && !filterSubtype) {
-          filteredData = filteredData.filter(item => 
-            item.type === filterType
-          );
-        }
-
+  
         setInternalData(filteredData);
         setPagination(prev => ({ ...prev, pageIndex: 0 }));
       } catch (error) {
@@ -826,7 +824,7 @@ export function UnitTable({ data }: UnitTableProps) {
         setLoading(false);
       }
     };
-
+  
     fetchFilteredData();
   }, [filterSubtype, filterType, activeTab]);
 
@@ -854,6 +852,18 @@ export function UnitTable({ data }: UnitTableProps) {
       toast.success(`تم ${status === 'Accepted' ? 'قبول' : 'رفض'} الوحدة بنجاح`);
       
       const refreshData = await unitsService.getAllUnits();
+      if (status === 'Accepted'){
+        setActiveTab('approved');
+
+      }
+      if (status === 'Refused'){
+        setActiveTab('rejected');
+
+      }
+      else {
+        setActiveTab('pending');
+
+      }
       setInternalData(refreshData);
     } catch (error) {
       setInternalData(prev => prev.map(item => 
@@ -1024,102 +1034,102 @@ export function UnitTable({ data }: UnitTableProps) {
     getSortedRowModel: getSortedRowModel(),
   });
 
-  const PropertyDetailsModal = ({ property, onClose }: { property: Property | null, onClose: () => void }) => {
-    if (!property) return null;
+//   const PropertyDetailsModal = ({ property, onClose }: { property: Property | null, onClose: () => void }) => {
+//     if (!property) return null;
 
-    return (
-      <div className="fixed inset-0 backdrop-blur-xs flex items-center justify-center z-[99999] p-4">
-        <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="p-6">
-            <div className="flex justify-between items-start mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">
-                تفاصيل العقار: {property.title}
-              </h2>
-              <button
-                onClick={onClose}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <XIcon className="w-6 h-6" />
-              </button>
-            </div>
+//     return (
+//       <div className="fixed inset-0 backdrop-blur-xs flex items-center justify-center z-[99999] p-4">
+//         <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+//           <div className="p-6">
+//             <div className="flex justify-between items-start mb-6">
+//               <h2 className="text-2xl font-bold text-gray-800">
+//                 تفاصيل العقار: {property.title}
+//               </h2>
+//               <button
+//                 onClick={onClose}
+//                 className="text-gray-500 hover:text-gray-700"
+//               >
+//                 <XIcon className="w-6 h-6" />
+//               </button>
+//             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+//             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-              <div className="col-span-1">
-              <div className="h-64">
-  <Carousel showThumbs={false} showStatus={false}>
-    {property.images?.map((image, index) => (
-      <div key={index}>
-        <img
-          src={image.url || '/placeholder-property.jpg'}
-          alt={`${property.title} - ${index + 1}`}
-          className="h-64 object-cover"
-          onError={(e) => {
-            e.currentTarget.src = '/placeholder-property.jpg';
-            e.currentTarget.onerror = null;
-          }}
-        />
-      </div>
-    ))}
-  </Carousel>
-</div>
-              </div>
+//               <div className="col-span-1">
+//               <div className="h-64">
+//   <Carousel showThumbs={false} showStatus={false}>
+//     {property.images?.map((image, index) => (
+//       <div key={index}>
+//         <img
+//           src={image.url || '/placeholder-property.jpg'}
+//           alt={`${property.title} - ${index + 1}`}
+//           className="h-64 object-cover"
+//           onError={(e) => {
+//             e.currentTarget.src = '/placeholder-property.jpg';
+//             e.currentTarget.onerror = null;
+//           }}
+//         />
+//       </div>
+//     ))}
+//   </Carousel>
+// </div>
+//               </div>
 
-              <div className="col-span-1 space-y-4">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-lg mb-3 text-gray-800 border-b pb-2">
-                    المعلومات الأساسية
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <DetailItem icon={<HomeIcon className="w-5 h-5" />} label="النوع" value={property.type} />
-                    <DetailItem 
-  icon={<MapPinIcon className="w-5 h-5" />} 
-  label="الموقع" 
-  value={
-    typeof property.location === 'string' 
-      ? property.location 
-      : `${property.location.city}, ${property.location.state}`
-  } 
-/>                 
-                    <DetailItem icon={<WalletIcon className="w-5 h-5" />} label="السعر" value={`${property.price} ${property.currency || 'د.ك'}`} />
-                    <DetailItem icon={<UserIcon className="w-5 h-5" />} label="صاحب العمل" value={`${property.businessOwnerFirstName} ${property.businessOwnerLastName}`} />
-                  </div>
-                </div>
+//               <div className="col-span-1 space-y-4">
+//                 <div className="bg-gray-50 p-4 rounded-lg">
+//                   <h3 className="font-semibold text-lg mb-3 text-gray-800 border-b pb-2">
+//                     المعلومات الأساسية
+//                   </h3>
+//                   <div className="grid grid-cols-2 gap-4">
+//                     <DetailItem icon={<HomeIcon className="w-5 h-5" />} label="النوع" value={property.type} />
+//                     <DetailItem 
+//   icon={<MapPinIcon className="w-5 h-5" />} 
+//   label="الموقع" 
+//   value={
+//     typeof property.location === 'string' 
+//       ? property.location 
+//       : `${property.location.city}, ${property.location.state}`
+//   } 
+// />                 
+//                     <DetailItem icon={<WalletIcon className="w-5 h-5" />} label="السعر" value={`${property.price} ${property.currency || 'د.ك'}`} />
+//                     <DetailItem icon={<UserIcon className="w-5 h-5" />} label="صاحب العمل" value={`${property.businessOwnerFirstName} ${property.businessOwnerLastName}`} />
+//                   </div>
+//                 </div>
 
-                {property.description && (
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="font-semibold text-lg mb-3 text-gray-800 border-b pb-2">
-                      الوصف
-                    </h3>
-                    <p className="text-gray-600">{property.description}</p>
-                  </div>
-                )}
+//                 {property.description && (
+//                   <div className="bg-gray-50 p-4 rounded-lg">
+//                     <h3 className="font-semibold text-lg mb-3 text-gray-800 border-b pb-2">
+//                       الوصف
+//                     </h3>
+//                     <p className="text-gray-600">{property.description}</p>
+//                   </div>
+//                 )}
 
-                <div className="flex justify-end gap-3 pt-4">
-                  <Button variant="outline" onClick={onClose}>
-                    إغلاق
-                  </Button>
-                  <Button variant="default" className="bg-purple-600 hover:bg-purple-700">
-                    تحرير المعلومات
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
+//                 <div className="flex justify-end gap-3 pt-4">
+//                   <Button variant="outline" onClick={onClose}>
+//                     إغلاق
+//                   </Button>
+//                   <Button variant="default" className="bg-purple-600 hover:bg-purple-700">
+//                     تحرير المعلومات
+//                   </Button>
+//                 </div>
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+//       </div>
+//     );
+//   };
 
-  const DetailItem = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) => (
-    <div className="flex items-start">
-      <div className="text-purple-600 mt-0.5 mr-2">{icon}</div>
-      <div>
-        <p className="text-sm font-medium text-gray-500">{label}</p>
-        <p className="font-semibold text-gray-800">{value || 'غير متوفر'}</p>
-      </div>
-    </div>
-  );
+  // const DetailItem = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) => (
+  //   <div className="flex items-start">
+  //     <div className="text-purple-600 mt-0.5 mr-2">{icon}</div>
+  //     <div>
+  //       <p className="text-sm font-medium text-gray-500">{label}</p>
+  //       <p className="font-semibold text-gray-800">{value || 'غير متوفر'}</p>
+  //     </div>
+  //   </div>
+  // );
 
   return (
     <div className="space-y-4">
@@ -1285,12 +1295,14 @@ export function UnitTable({ data }: UnitTableProps) {
       )}
 
       <AlertDialog 
+      
         open={deleteConfirmation.open} 
+        
         onOpenChange={(open) => {
           if (!open) setDeleteConfirmation({ open: false, unitId: null, unitName: '' });
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent >
           <AlertDialogHeader>
             <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1865,10 +1877,11 @@ export function BookingTable({ data }: { data: BookingRow[] }) {
     return internalData.filter(booking => booking.status.toLowerCase() === activeTab);
   }, [internalData, activeTab]);
 
-  const handleStatusUpdate = async (bookingId: string, newStatus: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed') => {
+  const handleStatusUpdate = async (bookingId: string, newStatus: 'Pending' | 'Confirmed' | 'Rejected' | 'Completed') => {
     try {
+      await reservationService.updateBookingStatus(bookingId,newStatus);
+
       setLoading(true);
-      
       setInternalData(prev => prev.map(booking => 
         booking.id === bookingId ? { ...booking, status: newStatus } : booking
       ));
@@ -1886,7 +1899,7 @@ export function BookingTable({ data }: { data: BookingRow[] }) {
     switch(status) {
       case 'Pending': return 'قيد الانتظار';
       case 'Confirmed': return 'تم التأكيد';
-      case 'Cancelled': return 'ملغى';
+      case 'Rejected': return 'ملغى';
       case 'Completed': return 'مكتمل';
       default: return status;
     }
@@ -1896,7 +1909,7 @@ export function BookingTable({ data }: { data: BookingRow[] }) {
     switch(status) {
       case 'Pending': return 'bg-yellow-100 text-yellow-800';
       case 'Confirmed': return 'bg-green-100 text-green-800';
-      case 'Cancelled': return 'bg-red-100 text-red-800';
+      case 'Rejected': return 'bg-red-100 text-red-800';
       case 'Completed': return 'bg-blue-100 text-blue-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -1992,8 +2005,8 @@ export function BookingTable({ data }: { data: BookingRow[] }) {
             <Button
               variant="destructive"
               size="sm"
-              onClick={() => handleStatusUpdate(row.original.id, 'Cancelled')}
-              disabled={row.original.status === 'Cancelled' || loading}
+              onClick={() => handleStatusUpdate(row.original.id, 'Rejected')}
+              disabled={row.original.status === 'Rejected' || loading}
             >
               إلغاء
             </Button>

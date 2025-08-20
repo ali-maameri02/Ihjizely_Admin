@@ -1,6 +1,5 @@
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import logo from '../../assets/20250625_093712.jpg';
+// import logo from '../../assets/20250625_093712.jpg';
 import roomPlaceholder from '../../assets/hotel room with beachfront view.jpg';
 import { useEffect, useState } from "react";
 import { reservationService, Booking } from "../../API/ReservationService";
@@ -60,14 +59,14 @@ export default function RecentActivities() {
         const [bookings, rooms, apartments, chalets, hotelApartments, resorts, restHouses, 
                smallHalls, largeHalls, meetingRooms] = await Promise.all([
           reservationService.getRecentBookings(),
-          fetchAvailableProperties('Hotel Room'),
+          fetchAvailableProperties('HotelRoom'),
           fetchAvailableProperties('Apartment'),
           fetchAvailableProperties('Chalet'),
-          fetchAvailableProperties('Hotel Apartment'),
+          fetchAvailableProperties('HotelApartment'),
           fetchAvailableProperties('Resort'),
-          fetchAvailableProperties('Rest House'),
-          fetchAvailableProperties('Event Hall Small'),
-          fetchAvailableProperties('Event Hall Large'),
+          fetchAvailableProperties('RestHouse'),
+          fetchAvailableProperties('EventHallSmall'),
+          fetchAvailableProperties('EventHallLarge'),
           fetchAvailableProperties('Meeting Room')
         ]);
 
@@ -110,7 +109,7 @@ export default function RecentActivities() {
     const { type, subtype, roomNumber } = booking.propertyDetails;
     
     if (type === 'Residence') {
-      if (subtype === 'Hotel Room' && roomNumber) {
+      if (subtype === 'HotelRoom' && roomNumber) {
         return `-غرفة ${roomNumber}`;
       }
       if (subtype === 'Apartment' && roomNumber) {
@@ -181,12 +180,12 @@ export default function RecentActivities() {
                   {booking.propertyDetails?.title || 'فندق '}
                 </CardTitle>
                 <CardContent className="flex flex-col sm:flex-row justify-between items-center p-0 px-4 pb-2 w-full gap-4">
-                  <Avatar>
+                  {/* <Avatar>
                     <AvatarImage src={logo} alt="User" />
                     <AvatarFallback>
                       {booking.name.split(' ').map(n => n[0]).join('')}
                     </AvatarFallback>
-                  </Avatar>
+                  </Avatar> */}
                   <span className="text-[15px] text-[#737373]">{booking.name}</span>
                   <span>{getRoomInfo(booking)}</span>
                   <span className="text-[12px] whitespace-nowrap">

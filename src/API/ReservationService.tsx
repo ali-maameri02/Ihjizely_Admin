@@ -77,7 +77,7 @@ export const reservationService = {
     return allBookings.slice(0, 3); // Return only the 5 most recent bookings
   },
 
-  async updateBookingStatus(bookingId: string, newStatus: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed'): Promise<Booking> {
+  async updateBookingStatus(bookingId: string, newStatus: 'Pending' | 'Confirmed' | 'Rejected' | 'Completed'): Promise<Booking> {
     try {
       const token = authService.getAuthToken();
       if (!token) throw new Error('No authentication token found');
@@ -98,7 +98,7 @@ export const reservationService = {
           }
         }
       );
-
+console.log(response.data)
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
