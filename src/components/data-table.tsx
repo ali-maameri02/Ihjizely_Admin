@@ -1872,39 +1872,54 @@ export function BookingTable({ data }: { data: BookingRow[] }) {
     pageSize: 10,
   });
   const [activeTab, setActiveTab] = React.useState<
-    'all' | 'confirmed' | 'pending' | 'cancelled' | 'completed'
-  >('all');
-
+  'all' | 'confirmed' | 'pending' | 'rejected' | 'completed'
+>('all');
   // Filter data based on active tab
   const filteredData = React.useMemo(() => {
     if (activeTab === 'all') return internalData;
-    return internalData.filter(booking => booking.status.toLowerCase() === activeTab);
+    
+    // Map tab values to status values
+    const statusMap = {
+      'confirmed': 'Confirmed',
+      'pending': 'Pending',
+      'rejected': 'Rejected',
+      'completed': 'Completed'
+    };
+    
+    return internalData.filter(booking => 
+      booking.status.toLowerCase() === statusMap[activeTab].toLowerCase()
+    );
   }, [internalData, activeTab]);
+  // Update the handleStatusUpdate function
+const handleStatusUpdate = async (bookingId: string, newStatus: 'Pending' | 'Confirmed' | 'Rejected' | 'Completed') => {
+  try {
+    await reservationService.updateBookingStatus(bookingId, newStatus);
 
-  const handleStatusUpdate = async (bookingId: string, newStatus: 'Pending' | 'Confirmed' | 'Rejected' | 'Completed') => {
-    try {
-      await reservationService.updateBookingStatus(bookingId,newStatus);
-
-      setLoading(true);
-      setInternalData(prev => prev.map(booking => 
-        booking.id === bookingId ? { ...booking, status: newStatus } : booking
-      ));
-      
-      toast.success(`Booking status updated to ${getStatusText(newStatus)}`);
-      if(newStatus ==='Confirmed'){
-        setActiveTab('confirmed')
-      
-      }
-      if(newStatus === 'Rejected'){
-        setActiveTab('cancelled')
-      }
-    } catch (error) {
-      console.error('Status update failed:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to update booking status');
-    } finally {
-      setLoading(false);
-    }
-  };
+    setLoading(true);
+    setInternalData(prev => prev.map(booking => 
+      booking.id === bookingId ? { ...booking, status: newStatus } : booking
+    ));
+    
+    toast.success(`Booking status updated to ${getStatusText(newStatus)}`);
+    
+    // Update the active tab based on the new status
+    const statusToTabMap = {
+      'Confirmed': 'confirmed',
+      'Rejected': 'rejected',
+      'Completed': 'completed',
+      'Pending': 'pending'
+    } as const;
+    
+    // Add type assertion to ensure it's a valid tab value
+    const newTab = statusToTabMap[newStatus] as 'all' | 'confirmed' | 'pending' | 'rejected' | 'completed';
+    setActiveTab(newTab);
+  } catch (error) {
+    console.error('Status update failed:', error);
+    toast.error(error instanceof Error ? error.message : 'Failed to update booking status');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const getStatusText = (status: string) => {
     switch(status) {
@@ -2068,11 +2083,11 @@ export function BookingTable({ data }: { data: BookingRow[] }) {
           قيد الانتظار
         </button>
         <button
-          className={`px-4 py-2 font-medium ${activeTab === 'cancelled' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('cancelled')}
-        >
-          الملغية
-        </button>
+  className={`px-4 py-2 font-medium ${activeTab === 'rejected' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
+  onClick={() => setActiveTab('rejected')}
+>
+  الملغية
+</button>
         <button
           className={`px-4 py-2 font-medium ${activeTab === 'completed' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
           onClick={() => setActiveTab('completed')}
