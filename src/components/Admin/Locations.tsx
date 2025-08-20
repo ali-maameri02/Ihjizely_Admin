@@ -1,7 +1,6 @@
 // locations.tsx
 import React, { useState, useEffect } from 'react';
 import { locationsService } from '@/API/LocationService';
-// import addLocationIcon from '../../assets/add_location.svg';
 import { DownloadCloudIcon, MoreVertical } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogTitle } from '@radix-ui/react-dialog';
@@ -20,6 +19,17 @@ export interface LocationRow {
   country: string;
 }
 
+type TabType = 'cities' | 'states' | 'state-cities';
+
+type TableDataItem = {
+  id: string;
+  name: string;
+  state?: string;
+  cities?: string[];
+  citiesDisplay?: string;
+  type: string;
+};
+
 export default function Locations() {
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,10 +39,13 @@ export default function Locations() {
   const [isAddLocationModalOpen, setIsAddLocationModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<LocationRow | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('cities');
   const [formData, setFormData] = useState({
     city: '',
     state: '',
-    country: ''
+    country: 'Libya',
+    isNewState: false,
+    newState: ''
   });
 
   useEffect(() => {
@@ -52,15 +65,57 @@ export default function Locations() {
     fetchLocations();
   }, []);
 
+  // Get unique states for dropdown
+  const uniqueStates = Array.from(new Set(locations.map(location => location.state)));
+
   const filteredLocations = locations.filter(location => {
-    // const searchLower = searchQuery.toLowerCase();
+    const searchLower = searchQuery.toLowerCase();
     return (
-      location.city,
-      location.state,
-      location.country );
+      location.city.toLowerCase().includes(searchLower) ||
+      location.state.toLowerCase().includes(searchLower) ||
+      location.country.toLowerCase().includes(searchLower)
+    );
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Group locations by state for the state-cities tab
+  const locationsByState = filteredLocations.reduce((acc, location) => {
+    if (!acc[location.state]) {
+      acc[location.state] = [];
+    }
+    acc[location.state].push(location);
+    return acc;
+  }, {} as Record<string, LocationRow[]>);
+
+  // Prepare data for different tabs
+  const getTableData = (): TableDataItem[] => {
+    switch (activeTab) {
+      case 'cities':
+        return filteredLocations.map(location => ({
+          id: location.id,
+          name: location.city,
+          state: location.state,
+          type: 'city'
+        }));
+      case 'states':
+        return uniqueStates.map(state => ({
+          id: state,
+          name: state,
+          type: 'state'
+        }));
+      case 'state-cities':
+        return Object.entries(locationsByState).map(([state, cities]) => ({
+          id: state,
+          name: state,
+          cities: cities.map(c => c.city),
+          citiesDisplay: cities.map(c => c.city).join('، '),
+          type: 'state-with-cities'
+        }));
+      default:
+        return [];
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -68,16 +123,40 @@ export default function Locations() {
     }));
   };
 
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: checked,
+      // Reset state field when switching between modes
+      ...(name === 'isNewState' && checked ? { state: '' } : { newState: '' })
+    }));
+  };
+
   const handleAddLocation = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setLoading(true);
-      await locationsService.addLocation(formData);
+      
+      // Use the selected state or the new state value
+      const locationData = {
+        city: formData.city,
+        state: formData.isNewState ? formData.newState : formData.state,
+        country: formData.country
+      };
+      
+      await locationsService.addLocation(locationData);
       // Refetch all locations
       const data = await locationsService.getAllLocations();
       setLocations(data);
       toast.success('تم إضافة الموقع بنجاح');
-      setFormData({ city: '', state: '', country: 'Libya' });
+      setFormData({ 
+        city: '', 
+        state: '', 
+        country: 'Libya',
+        isNewState: false,
+        newState: ''
+      });
       setIsAddLocationModalOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to add location');
@@ -92,13 +171,27 @@ export default function Locations() {
     
     try {
       setLoading(true);
-      await locationsService.updateLocation(currentLocation.id, formData);
+      
+      // Use the selected state or the new state value
+      const locationData = {
+        city: formData.city,
+        state: formData.isNewState ? formData.newState : formData.state,
+        country: formData.country
+      };
+      
+      await locationsService.updateLocation(currentLocation.id, locationData);
       // Refetch all locations
       const data = await locationsService.getAllLocations();
       setLocations(data);
       toast.success('تم تحديث الموقع بنجاح');
       setCurrentLocation(null);
-      setFormData({ city: '', state: '', country: '' });
+      setFormData({ 
+        city: '', 
+        state: '', 
+        country: 'Libya',
+        isNewState: false,
+        newState: ''
+      });
       setIsEditModalOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update location');
@@ -121,59 +214,103 @@ export default function Locations() {
       setLoading(false);
     }
   };
+
   const openEditModal = (location: LocationRow) => {
     setCurrentLocation(location);
     setFormData({
       city: location.city,
       state: location.state,
-      country: location.country
+      country: location.country,
+      isNewState: false,
+      newState: ''
     });
     setIsEditModalOpen(true);
   };
 
-  const columns: ColumnDef<LocationRow>[] = [
-    {
-      accessorKey: "city",
-      header: "الحي",
-      cell: ({ row }) => <span>{row.original.city}</span>,
-    },
-    {
-      accessorKey: "state",
-      header: "المدينة",
-      cell: ({ row }) => <span>{row.original.state}</span>,
-    },
-    {
-      accessorKey: "country",
-      header: "البلد",
-      cell: ({ row }) => <span>{row.original.country}</span>,
-    },
-    {
-      id: "actions",
-      header: "الإجراءات",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => openEditModal(row.original)}
-          >
-            <EditIcon className="w-4 h-4 text-blue-500" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              if (confirm(`هل أنت متأكد من حذف ${row.original.city}؟`)) {
-                handleDeleteLocation(row.original.id);
-              }
-            }}
-          >
-            <IconTrash className="w-4 h-4 text-red-500" />
-          </Button>
-        </div>
-      ),
-    },
-  ];
+  // Create different column sets for different tabs
+  const getColumns = (): ColumnDef<TableDataItem>[] => {
+    switch (activeTab) {
+      case 'cities':
+        return [
+          {
+            accessorKey: "name",
+            header: "الحي",
+            cell: ({ row }) => <span>{row.original.name}</span>,
+          },
+          {
+            accessorKey: "state",
+            header: "المدينة",
+            cell: ({ row }) => <span>{row.original.state}</span>,
+          },
+          {
+            id: "actions",
+            header: "الإجراءات",
+            cell: ({ row }) => {
+              const location = locations.find(l => l.id === row.original.id);
+              if (!location) return null;
+              
+              return (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => openEditModal(location)}
+                  >
+                    <EditIcon className="w-4 h-4 text-blue-500" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      if (confirm(`هل أنت متأكد من حذف ${location.city}؟`)) {
+                        handleDeleteLocation(location.id);
+                      }
+                    }}
+                  >
+                    <IconTrash className="w-4 h-4 text-red-500" />
+                  </Button>
+                </div>
+              );
+            },
+          }
+        ];
+        
+      case 'states':
+        return [
+          {
+            accessorKey: "name",
+            header: "المدينة",
+            cell: ({ row }) => <span>{row.original.name}</span>,
+          }
+        ];
+        
+      case 'state-cities':
+        return [
+          {
+            accessorKey: "name",
+            header: "المدينة",
+            cell: ({ row }) => <span>{row.original.name}</span>,
+          },
+          {
+            accessorKey: "citiesDisplay",
+            header: "الأحياء",
+            cell: ({ row }) => (
+              <div className="text-right">
+                {row.original.cities?.map((city: string, index: number) => (
+                  <span key={city}>
+                    {city}
+                    {index < (row.original.cities?.length || 0) - 1 && '، '}
+                  </span>
+                )) || <span className="text-gray-400">لا توجد أحياء</span>}
+              </div>
+            ),
+          }
+        ];
+        
+      default:
+        return [];
+    }
+  };
 
   if (loading) {
     return <div className="p-6 flex items-center justify-center h-64">جاري تحميل البيانات...</div>;
@@ -199,6 +336,50 @@ export default function Locations() {
 
             <form onSubmit={handleAddLocation} className="space-y-4 mt-4">
               <div className="space-y-2">
+                <Label className="text-right block">
+                  المدينة
+                </Label>
+                
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id="isNewState"
+                    name="isNewState"
+                    checked={formData.isNewState}
+                    onChange={handleCheckboxChange}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="isNewState" className="text-sm">
+                    إضافة مدينة جديدة
+                  </Label>
+                </div>
+                
+                {!formData.isNewState ? (
+                  <select
+                    name="state"
+                    value={formData.state}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-right"
+                  >
+                    <option value="">اختر المدينة</option>
+                    {uniqueStates.map(state => (
+                      <option key={state} value={state}>{state}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <Input
+                    name="newState"
+                    value={formData.newState}
+                    onChange={handleInputChange}
+                    required
+                    className="text-right"
+                    placeholder="أدخل اسم مدينة جديدة"
+                  />
+                )}
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="city" className="text-right block">
                   الحي
                 </Label>
@@ -209,26 +390,11 @@ export default function Locations() {
                   onChange={handleInputChange}
                   required
                   className="text-right"
-                  placeholder="أدخل اسم المدينة"
+                  placeholder="أدخل اسم الحي"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="state" className="text-right block">
-                المدينة
-                </Label>
-                <Input
-                  id="state"
-                  name="state"
-                  value={formData.state}
-                  onChange={handleInputChange}
-                  required
-                  className="text-right"
-                  placeholder="أدخل اسم الولاية"
-                />
-              </div>
-
-              <div className="space-y-2">
+              <div className="space-y-2 hidden">
                 <Label htmlFor="country" className="text-right block">
                   البلد
                 </Label>
@@ -238,8 +404,8 @@ export default function Locations() {
                   value="Libya"
                   onChange={handleInputChange}
                   required
-                  className="text-right "
-                  placeholder="أدخل اسم البلد"
+                  className="text-right"
+                  readOnly
                 />
               </div>
 
@@ -274,8 +440,52 @@ export default function Locations() {
 
             <form onSubmit={handleEditLocation} className="space-y-4 mt-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-city" className="text-right block">
+                <Label className="text-right block">
                   المدينة
+                </Label>
+                
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id="edit-isNewState"
+                    name="isNewState"
+                    checked={formData.isNewState}
+                    onChange={handleCheckboxChange}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="edit-isNewState" className="text-sm">
+                    إضافة مدينة جديدة
+                  </Label>
+                </div>
+                
+                {!formData.isNewState ? (
+                  <select
+                    name="state"
+                    value={formData.state}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-right"
+                  >
+                    <option value="">اختر المدينة</option>
+                    {uniqueStates.map(state => (
+                      <option key={state} value={state}>{state}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <Input
+                    name="newState"
+                    value={formData.newState}
+                    onChange={handleInputChange}
+                    required
+                    className="text-right"
+                    placeholder="أدخل اسم مدينة جديدة"
+                  />
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-city" className="text-right block">
+                  الحي
                 </Label>
                 <Input
                   id="edit-city"
@@ -284,37 +494,22 @@ export default function Locations() {
                   onChange={handleInputChange}
                   required
                   className="text-right"
-                  placeholder="أدخل اسم المدينة"
+                  placeholder="أدخل اسم الحي"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-state" className="text-right block">
-                  الولاية
-                </Label>
-                <Input
-                  id="edit-state"
-                  name="state"
-                  value={formData.state}
-                  onChange={handleInputChange}
-                  required
-                  className="text-right"
-                  placeholder="أدخل اسم الولاية"
-                />
-              </div>
-
-              <div className="space-y-2">
+              <div className="space-y-2 hidden">
                 <Label htmlFor="edit-country" className="text-right block">
                   البلد
                 </Label>
                 <Input
                   id="edit-country"
                   name="country"
-                  value={formData.country}
+                  value="Libya"
                   onChange={handleInputChange}
                   required
                   className="text-right"
-                  placeholder="أدخل اسم البلد"
+                  readOnly
                 />
               </div>
 
@@ -349,6 +544,28 @@ export default function Locations() {
             <span>أضف جديد</span>
             <IconLocationPlus/>
           </Button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200 w-full">
+          <button
+            className={`py-2 px-4 font-medium ${activeTab === 'cities' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-500'}`}
+            onClick={() => setActiveTab('cities')}
+          >
+            الأحياء
+          </button>
+          <button
+            className={`py-2 px-4 font-medium ${activeTab === 'states' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-500'}`}
+            onClick={() => setActiveTab('states')}
+          >
+            المدن
+          </button>
+          <button
+            className={`py-2 px-4 font-medium ${activeTab === 'state-cities' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-500'}`}
+            onClick={() => setActiveTab('state-cities')}
+          >
+            المدن مع أحيائها
+          </button>
         </div>
 
         <div className="flex items-end gap-2 w-full md:w-full">
@@ -388,7 +605,7 @@ export default function Locations() {
       )}
       
       <div className="rounded-md border">
-        <DataTable data={filteredLocations} columns={columns} />
+        <DataTable data={getTableData()} columns={getColumns()} />
       </div>
     </div>
   );

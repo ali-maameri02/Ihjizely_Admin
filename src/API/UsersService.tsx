@@ -95,7 +95,7 @@ async blockUser(userId: string): Promise<void> {
     // First try direct block
     try {
       const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/Users/${userId}/block`,
+        `${import.meta.env.VITE_API_URL}/Users/${userId}/report-violation`,
         {},
         {
           headers: {

@@ -333,11 +333,14 @@ export default function UserTable({ data }: { data: UserRow[] }) {
 
   const handleBlockUser = async (userId: string, userName: string) => {
     try {
+
       setLoading(true);
       const warningKey = `block-warning-${userId}`;
       const warningCountString = localStorage.getItem(warningKey);
       const warningCount = warningCountString ? parseInt(warningCountString) : 0;
       if (warningCount < 2) {
+        await usersService.blockUser(userId);
+
         await Swal.fire({
           title: 'تحذير',
           text: `سيتم حظر المستخدم ${userName} بعد ${2 - warningCount} تحذير${warningCount === 1 ? '' : 'ين'}`,
@@ -364,6 +367,7 @@ export default function UserTable({ data }: { data: UserRow[] }) {
       if (!confirmResult.isConfirmed) return;
   
       await usersService.blockUser(userId);
+      console.log(userId)
       localStorage.removeItem(warningKey);
       
       await Swal.fire({
@@ -1696,11 +1700,11 @@ const handleRecharge = async () => {
     <div>
          <Dialog open={rechargeDialogOpen} onOpenChange={setRechargeDialogOpen}>
          <DialogContent className={`
-  fixed inset-0 m-auto 
+  fixed top-32 right-76 m-auto 
   z-[1000] 
   w-[90%] max-w-md 
   p-6 
-  bg-white dark:bg-gray-800 
+  bg-white 
   rounded-lg 
   shadow-xl
   border border-gray-200 dark:border-gray-700
@@ -1887,6 +1891,13 @@ export function BookingTable({ data }: { data: BookingRow[] }) {
       ));
       
       toast.success(`Booking status updated to ${getStatusText(newStatus)}`);
+      if(newStatus ==='Confirmed'){
+        setActiveTab('confirmed')
+      
+      }
+      if(newStatus === 'Rejected'){
+        setActiveTab('cancelled')
+      }
     } catch (error) {
       console.error('Status update failed:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update booking status');
@@ -1914,6 +1925,8 @@ export function BookingTable({ data }: { data: BookingRow[] }) {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  
 
   const columns: ColumnDef<BookingRow>[] = [
     {
@@ -1991,11 +2004,12 @@ export function BookingTable({ data }: { data: BookingRow[] }) {
       header: "الإجراءات",
       cell: ({ row }) => {
         const isConfirmed = row.original.status === 'Confirmed';
+        const isPending = row.original.status === 'Pending';
         
         return (
           <div className="flex items-center gap-2">
             <Button
-              variant={isConfirmed ? "default" : "ghost"}
+              variant={isPending ? "default" : "ghost"}
               size="sm"
               onClick={() => handleStatusUpdate(row.original.id, 'Confirmed')}
               disabled={isConfirmed || loading}

@@ -3,6 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { subscriptionsService } from "@/API/SubscriptionsService";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { X } from "lucide-react";
 
 // Lazy-loaded components
 const PlanCard = lazy(() => import("./PlanCard"));
@@ -28,7 +36,7 @@ export default function SubscriptionPlans() {
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   const [plans, setPlans] = useState<Plan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newPlan, setNewPlan] = useState({
     name: '',
     duration: '1', // Default to 1 hour
@@ -38,19 +46,18 @@ export default function SubscriptionPlans() {
   });
 
   // Helper functions for duration handling
-  // In subscription-plans.tsx, update the formatDurationForDisplay function:
-const formatDurationForDisplay = (duration: string): string => {
-  if (!duration) return "غير محدد";
-  
-  // If it's in HH:MM:SS format
-  if (/^\d{2}:\d{2}:\d{2}$/.test(duration)) {
-    const [hours] = duration.split(':');
-    return `${hours} ساعة`;
-  }
-  
-  // If it's just a number
-  return `${duration} ساعة`;
-};
+  const formatDurationForDisplay = (duration: string): string => {
+    if (!duration) return "غير محدد";
+    
+    // If it's in HH:MM:SS format
+    if (/^\d{2}:\d{2}:\d{2}$/.test(duration)) {
+      const [hours] = duration.split(':');
+      return `${hours} يوم`;
+    }
+    
+    // If it's just a number
+    return `${duration} ] يوم`;
+  };
 
   const parseDurationInput = (input: string): string => {
     if (/^\d+$/.test(input)) return `${input}:00:00`;
@@ -183,10 +190,10 @@ const formatDurationForDisplay = (duration: string): string => {
       };
       
       setPlans(prev => [...prev, transformedPlan]);
-      setIsCreating(false);
+      setIsCreateDialogOpen(false);
       setNewPlan({
         name: '',
-        duration: '30:00:00',
+        duration: '1',
         amount: 0,
         currency: 'LYD',
         maxAds: 0
@@ -236,91 +243,110 @@ const formatDurationForDisplay = (duration: string): string => {
           >
             رجوع إلى الاشتراكات
           </Button>
-          <Button 
-            onClick={() => setIsCreating(!isCreating)}
-            className="flex items-center gap-2"
-          >
-            {isCreating ? 'إلغاء' : 'إنشاء خطة جديدة'}
-          </Button>
+          
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                إنشاء خطة جديدة
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="flex justify-between items-center">
+                  <span>إنشاء خطة جديدة</span>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => setIsCreateDialogOpen(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">اسم الخطة</label>
+                    <input
+                      type="text"
+                      value={newPlan.name}
+                      onChange={(e) => setNewPlan({...newPlan, name: e.target.value})}
+                      className="w-full p-2 border rounded"
+                      placeholder="أدخل اسم الخطة"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      المدة (أيام)
+                      <span className="text-xs text-gray-500 block">أدخل عدد الأيام </span>
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="23"
+                      value={newPlan.duration}
+                      onChange={(e) => {
+                        const value = Math.min(23, Math.max(1, parseInt(e.target.value) || 1));
+                        setNewPlan({...newPlan, duration: value.toString()});
+                      }}
+                      className="w-full p-2 border rounded"
+                      placeholder="أدخل عدد الساعات"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">السعر</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={newPlan.amount}
+                      onChange={(e) => setNewPlan({...newPlan, amount: Number(e.target.value)})}
+                      className="w-full p-2 border rounded"
+                      placeholder="أدخل سعر الخطة"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">العملة</label>
+                    <select
+                      value={newPlan.currency}
+                      onChange={(e) => setNewPlan({...newPlan, currency: e.target.value})}
+                      className="w-full p-2 border rounded"
+                    >
+                      <option value="LYD">الدينار الليبي</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">الحد الأقصى للإعلانات (اختياري)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={newPlan.maxAds}
+                      onChange={(e) => setNewPlan({...newPlan, maxAds: Number(e.target.value)})}
+                      className="w-full p-2 border rounded"
+                      placeholder="أدخل الحد الأقصى للإعلانات"
+                    />
+                  </div>
+                </div>
+                <div className="mt-6 flex justify-end gap-2">
+                  <Button 
+                    variant="outline"
+                    onClick={() => setIsCreateDialogOpen(false)}
+                  >
+                    إلغاء
+                  </Button>
+                  <Button 
+                    onClick={handleCreatePlan} 
+                    disabled={!newPlan.name || !newPlan.duration || !newPlan.amount}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    حفظ الخطة
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
-
-      {isCreating && (
-        <div className="mb-8 p-6 bg-white rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4">إنشاء خطة جديدة</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">اسم الخطة</label>
-              <input
-                type="text"
-                value={newPlan.name}
-                onChange={(e) => setNewPlan({...newPlan, name: e.target.value})}
-                className="w-full p-2 border rounded"
-                placeholder="أدخل اسم الخطة"
-              />
-            </div>
-<div>
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    المدة (بالساعات)
-    <span className="text-xs text-gray-500 block">أدخل عدد الساعات (1-23)</span>
-  </label>
-  <input
-    type="number"
-    min="1"
-    max="23"
-    value={newPlan.duration}
-    onChange={(e) => {
-      const value = Math.min(23, Math.max(1, parseInt(e.target.value) || 1));
-      setNewPlan({...newPlan, duration: value.toString()});
-    }}
-    className="w-full p-2 border rounded"
-    placeholder="أدخل عدد الساعات"
-  />
-</div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">السعر</label>
-              <input
-                type="number"
-                min="0"
-                value={newPlan.amount}
-                onChange={(e) => setNewPlan({...newPlan, amount: Number(e.target.value)})}
-                className="w-full p-2 border rounded"
-                placeholder="أدخل سعر الخطة"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">العملة</label>
-              <select
-                value={newPlan.currency}
-                onChange={(e) => setNewPlan({...newPlan, currency: e.target.value})}
-                className="w-full p-2 border rounded"
-              >
-                <option value="LYD">الدينار الليبي</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">الحد الأقصى للإعلانات (اختياري)</label>
-              <input
-                type="number"
-                min="0"
-                value={newPlan.maxAds}
-                onChange={(e) => setNewPlan({...newPlan, maxAds: Number(e.target.value)})}
-                className="w-full p-2 border rounded"
-                placeholder="أدخل الحد الأقصى للإعلانات"
-              />
-            </div>
-          </div>
-          <div className="mt-4">
-            <Button 
-              onClick={handleCreatePlan} 
-              disabled={!newPlan.name || !newPlan.duration || !newPlan.amount}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              حفظ الخطة
-            </Button>
-          </div>
-        </div>
-      )}
 
       <Suspense fallback={<div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {[1, 2, 3].map((_, idx) => (
