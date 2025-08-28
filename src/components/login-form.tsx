@@ -60,7 +60,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
                   <Input
                     id="phoneNumber"
                     type="text"
-                    placeholder="697983187"
+                    placeholder="phoneNumber"
                     required
                     value={credentials.phoneNumber}
                     onChange={handleChange}

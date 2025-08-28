@@ -34,6 +34,7 @@ export type Property = {
     status?: PropertyStatus;
     businessOwnerFirstName: string;
     businessOwnerLastName: string;
+    isAd:boolean;
 };
 
 export type UnitRow = {
@@ -43,6 +44,7 @@ export type UnitRow = {
   image: string;
   owner: string;
   location: string;
+  isAd: boolean; // Change from Boolean to boolean
   status: PropertyStatus;
   subscriptionStatus: boolean;
   registrationDate: string;
@@ -262,6 +264,7 @@ export const unitsService = {
         return {
             id: property.id,
             type: this.getPropertyTypeLabel(property.type),
+            isAd:property.isAd,
             unitName: property.title,
             image: property.images?.[0]?.url || '',
             owner: 'Business Owner',

@@ -5,7 +5,6 @@ import {
   IconBuilding,
   IconReceipt2,
   IconCurrencyDollar,
-  IconSettings,
   IconMoon,
   IconLogout2, IconCalendarClock,
   IconReport, IconLocationPlus
@@ -72,11 +71,7 @@ const data = {
       url: "/Admin/Locations",
       icon: IconLocationPlus,
     },
-    {
-      title: "إعدادات",
-      url: "/Admin/settings",
-      icon: IconSettings,
-    },
+   
   ],
 };
 

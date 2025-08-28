@@ -188,10 +188,12 @@ async reportUserViolation(userId: string, reason: string): Promise<void> {
       if (!token) throw new Error('No authentication token found');
 
       const response = await axios.delete(
-        `${import.meta.env.VITE_API_URL}/Users/${userId}`,
+        `${import.meta.env.VITE_API_URL}/Users/${userId}/`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+
           }
         }
       );

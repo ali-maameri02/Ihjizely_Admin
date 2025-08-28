@@ -98,6 +98,7 @@ export const userSchema = z.object({
 export const unitSchema = z.object({
   id: z.string(),
   type: z.string(),
+  isAd: z.boolean(), // Change from Boolean to boolean
   unitName: z.string(),
   image: z.string(),
   owner: z.string(),
@@ -768,7 +769,7 @@ interface UnitTableProps {
 export function UnitTable({ data }: UnitTableProps) {
   const [filterType, setFilterType] = useState<string>("");
   const [filterSubtype, setFilterSubtype] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'ads'>('all');
   const [sorting, setSorting] = useState<SortingState>([]);
   const [internalData, setInternalData] = useState<UnitRow[]>(data);
   const [loading, setLoading] = useState(false);
@@ -814,6 +815,11 @@ export function UnitTable({ data }: UnitTableProps) {
             case 'rejected':
               filteredData = await unitsService.getUnitsByStatus('Refused');
               break;
+            case 'ads':
+              // Fetch all units and filter for ads on the client side
+              const allUnits = await unitsService.getAllUnits();
+              filteredData = allUnits.filter(unit => unit.isAd);
+              break;
             default:
               filteredData = await unitsService.getAllUnits();
               break;
@@ -852,22 +858,24 @@ export function UnitTable({ data }: UnitTableProps) {
       ));
 
       await unitsService.updatePropertyStatus(propertyId, status);
-      
+      if (status === 'Accepted'){
+        setActiveTab('approved');
+      }
       toast.success(`تم ${status === 'Accepted' ? 'قبول' : 'رفض'} الوحدة بنجاح`);
       
       const refreshData = await unitsService.getAllUnits();
       if (status === 'Accepted'){
         setActiveTab('approved');
-
       }
       if (status === 'Refused'){
         setActiveTab('rejected');
-
       }
-      else {
+      if (status === 'Pending'){
         setActiveTab('pending');
-
       }
+      // else {
+      //   setActiveTab('pending');
+      // }
       setInternalData(refreshData);
     } catch (error) {
       setInternalData(prev => prev.map(item => 
@@ -947,16 +955,16 @@ export function UnitTable({ data }: UnitTableProps) {
       ),
     },
     {
-      accessorKey: "premiumSubscription",
-      header: "اشتراك مميز",
+      accessorKey: "isAd",
+      header: " إعلان",
       cell: ({ row }) => (
         <Badge
           style={{
-            backgroundColor: row.original.premiumSubscription ? "#45DB4F" : "red",
+            backgroundColor: row.original.isAd ? "#45DB4F" : "red",
             color: "white",
           }}
         >
-          {row.original.premiumSubscription ? "مفعل" : "غير مفعل"}
+          {row.original.isAd ? "إعلان" : "غير مفعل"}
         </Badge>
       ),
     },
@@ -986,7 +994,7 @@ export function UnitTable({ data }: UnitTableProps) {
               size="icon"
               onClick={() => handleStatusUpdate(
                 row.original.id.toString(), 
-                'Accepted'
+                'Accepted',
               )}
               disabled={isAccepted}
             >
@@ -1038,107 +1046,10 @@ export function UnitTable({ data }: UnitTableProps) {
     getSortedRowModel: getSortedRowModel(),
   });
 
-//   const PropertyDetailsModal = ({ property, onClose }: { property: Property | null, onClose: () => void }) => {
-//     if (!property) return null;
-
-//     return (
-//       <div className="fixed inset-0 backdrop-blur-xs flex items-center justify-center z-[99999] p-4">
-//         <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-//           <div className="p-6">
-//             <div className="flex justify-between items-start mb-6">
-//               <h2 className="text-2xl font-bold text-gray-800">
-//                 تفاصيل العقار: {property.title}
-//               </h2>
-//               <button
-//                 onClick={onClose}
-//                 className="text-gray-500 hover:text-gray-700"
-//               >
-//                 <XIcon className="w-6 h-6" />
-//               </button>
-//             </div>
-
-//             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-//               <div className="col-span-1">
-//               <div className="h-64">
-//   <Carousel showThumbs={false} showStatus={false}>
-//     {property.images?.map((image, index) => (
-//       <div key={index}>
-//         <img
-//           src={image.url || '/placeholder-property.jpg'}
-//           alt={`${property.title} - ${index + 1}`}
-//           className="h-64 object-cover"
-//           onError={(e) => {
-//             e.currentTarget.src = '/placeholder-property.jpg';
-//             e.currentTarget.onerror = null;
-//           }}
-//         />
-//       </div>
-//     ))}
-//   </Carousel>
-// </div>
-//               </div>
-
-//               <div className="col-span-1 space-y-4">
-//                 <div className="bg-gray-50 p-4 rounded-lg">
-//                   <h3 className="font-semibold text-lg mb-3 text-gray-800 border-b pb-2">
-//                     المعلومات الأساسية
-//                   </h3>
-//                   <div className="grid grid-cols-2 gap-4">
-//                     <DetailItem icon={<HomeIcon className="w-5 h-5" />} label="النوع" value={property.type} />
-//                     <DetailItem 
-//   icon={<MapPinIcon className="w-5 h-5" />} 
-//   label="الموقع" 
-//   value={
-//     typeof property.location === 'string' 
-//       ? property.location 
-//       : `${property.location.city}, ${property.location.state}`
-//   } 
-// />                 
-//                     <DetailItem icon={<WalletIcon className="w-5 h-5" />} label="السعر" value={`${property.price} ${property.currency || 'د.ك'}`} />
-//                     <DetailItem icon={<UserIcon className="w-5 h-5" />} label="صاحب العمل" value={`${property.businessOwnerFirstName} ${property.businessOwnerLastName}`} />
-//                   </div>
-//                 </div>
-
-//                 {property.description && (
-//                   <div className="bg-gray-50 p-4 rounded-lg">
-//                     <h3 className="font-semibold text-lg mb-3 text-gray-800 border-b pb-2">
-//                       الوصف
-//                     </h3>
-//                     <p className="text-gray-600">{property.description}</p>
-//                   </div>
-//                 )}
-
-//                 <div className="flex justify-end gap-3 pt-4">
-//                   <Button variant="outline" onClick={onClose}>
-//                     إغلاق
-//                   </Button>
-//                   <Button variant="default" className="bg-purple-600 hover:bg-purple-700">
-//                     تحرير المعلومات
-//                   </Button>
-//                 </div>
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-//       </div>
-//     );
-//   };
-
-  // const DetailItem = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) => (
-  //   <div className="flex items-start">
-  //     <div className="text-purple-600 mt-0.5 mr-2">{icon}</div>
-  //     <div>
-  //       <p className="text-sm font-medium text-gray-500">{label}</p>
-  //       <p className="font-semibold text-gray-800">{value || 'غير متوفر'}</p>
-  //     </div>
-  //   </div>
-  // );
-
   return (
     <div className="space-y-4">
       <div className="flex border-b">
-        {(['all', 'pending', 'approved', 'rejected'] as const).map((tab) => (
+        {(['all', 'pending', 'approved', 'rejected', 'ads'] as const).map((tab) => (
           <button
             key={tab}
             className={`px-4 py-2 font-medium ${
@@ -1152,6 +1063,7 @@ export function UnitTable({ data }: UnitTableProps) {
             {tab === 'pending' && 'قيد الانتظار'}
             {tab === 'approved' && 'المقبولة'}
             {tab === 'rejected' && 'المرفوضة'}
+            {tab === 'ads' && 'الإعلانات'}
           </button>
         ))}
       </div>
@@ -1169,7 +1081,7 @@ export function UnitTable({ data }: UnitTableProps) {
               setFilterSubtype("");
             }}
             className="border rounded px-3 py-2 w-full text-right"
-            disabled={loading}
+            disabled={loading || activeTab === 'ads'}
           >
             <option value="">الكل</option>
             {propertyTypes.map((type) => (
@@ -1189,7 +1101,7 @@ export function UnitTable({ data }: UnitTableProps) {
             value={filterSubtype}
             onChange={(e) => setFilterSubtype(e.target.value)}
             className="border rounded px-3 py-2 w-full text-right"
-            disabled={!filterType || loading}
+            disabled={!filterType || loading || activeTab === 'ads'}
           >
             <option value="">الكل</option>
             {filterType && propertyTypes
@@ -1242,9 +1154,11 @@ export function UnitTable({ data }: UnitTableProps) {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={columns.length} className="h-24 text-center">
-                      {filterSubtype 
-                        ? `لا توجد وحدات من نوع ${unitsService.getSubtypeLabel(filterSubtype)}`
-                        : "لا توجد بيانات متاحة"}
+                      {activeTab === 'ads' 
+                        ? 'لا توجد إعلانات متاحة'
+                        : filterSubtype 
+                          ? `لا توجد وحدات من نوع ${unitsService.getSubtypeLabel(filterSubtype)}`
+                          : "لا توجد بيانات متاحة"}
                     </TableCell>
                   </TableRow>
                 )}
@@ -1299,9 +1213,7 @@ export function UnitTable({ data }: UnitTableProps) {
       )}
 
       <AlertDialog 
-      
         open={deleteConfirmation.open} 
-        
         onOpenChange={(open) => {
           if (!open) setDeleteConfirmation({ open: false, unitId: null, unitName: '' });
         }}

@@ -11,6 +11,7 @@ import { DataTable } from '../data-table';
 import { ColumnDef } from '@tanstack/react-table';
 import { IconLocationPlus, IconTrash } from '@tabler/icons-react';
 import { EditIcon } from 'lucide-react';
+import { DialogHeader, DialogFooter } from '../ui/dialog';
 
 export interface LocationRow {
   id: string;
@@ -38,6 +39,8 @@ export default function Locations() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isAddLocationModalOpen, setIsAddLocationModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [locationToDelete, setLocationToDelete] = useState<LocationRow | null>(null);
   const [currentLocation, setCurrentLocation] = useState<LocationRow | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('cities');
   const [formData, setFormData] = useState({
@@ -200,19 +203,28 @@ export default function Locations() {
     }
   };
 
-  const handleDeleteLocation = async (id: string) => {
+  const handleDeleteLocation = async () => {
+    if (!locationToDelete) return;
+    
     try {
       setLoading(true);
-      await locationsService.deleteLocation(id);
+      await locationsService.deleteLocation(locationToDelete.id);
       // Refetch all locations
       const data = await locationsService.getAllLocations();
       setLocations(data);
       toast.success('تم حذف الموقع بنجاح');
+      setIsDeleteDialogOpen(false);
+      setLocationToDelete(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete location');
     } finally {
       setLoading(false);
     }
+  };
+
+  const openDeleteDialog = (location: LocationRow) => {
+    setLocationToDelete(location);
+    setIsDeleteDialogOpen(true);
   };
 
   const openEditModal = (location: LocationRow) => {
@@ -261,11 +273,7 @@ export default function Locations() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => {
-                      if (confirm(`هل أنت متأكد من حذف ${location.city}؟`)) {
-                        handleDeleteLocation(location.id);
-                      }
-                    }}
+                    onClick={() => openDeleteDialog(location)}
                   >
                     <IconTrash className="w-4 h-4 text-red-500" />
                   </Button>
@@ -526,6 +534,50 @@ export default function Locations() {
                 </Button>
               </div>
             </form>
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogPortal>
+          <DialogOverlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999]" />
+          <DialogContent className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[450px] max-h-[85vh] bg-white p-6 rounded-xl shadow-lg z-[99999] focus:outline-none">
+            <DialogHeader>
+              <DialogTitle className="text-right text-xl font-bold">
+                تأكيد الحذف
+              </DialogTitle>
+              <DialogDescription className="text-right text-gray-600 mt-2">
+                هل أنت متأكد من رغبتك في حذف الموقع؟
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg text-right">
+              {locationToDelete && (
+                <>
+                  <p className="font-medium">الحي: {locationToDelete.city}</p>
+                  <p className="font-medium">المدينة: {locationToDelete.state}</p>
+                  <p className="text-gray-600 mt-2">هذا الإجراء لا يمكن التراجع عنه.</p>
+                </>
+              )}
+            </div>
+
+            <DialogFooter className="flex justify-between pt-4">
+              <Button 
+                type="button" 
+                variant="outline"
+                onClick={() => setIsDeleteDialogOpen(false)}
+              >
+                إلغاء
+              </Button>
+              <Button 
+                type="button" 
+                className="bg-red-600 hover:bg-red-700"
+                onClick={handleDeleteLocation}
+              >
+                حذف
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </DialogPortal>
       </Dialog>

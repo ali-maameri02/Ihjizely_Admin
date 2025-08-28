@@ -284,10 +284,9 @@ export default function SubscriptionPlans() {
                     <input
                       type="number"
                       min="1"
-                      max="23"
                       value={newPlan.duration}
                       onChange={(e) => {
-                        const value = Math.min(23, Math.max(1, parseInt(e.target.value) || 1));
+                        const value = Math.min(365, Math.max(1, parseInt(e.target.value) || 1));
                         setNewPlan({...newPlan, duration: value.toString()});
                       }}
                       className="w-full p-2 border rounded"
