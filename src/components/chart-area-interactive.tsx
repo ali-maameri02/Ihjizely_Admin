@@ -1,17 +1,15 @@
 import  { useState, useEffect } from "react";
 import {
-  AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, Area, ResponsiveContainer,
-  BarChart, Bar, PieChart, Pie, Cell
-} from "recharts";
+  AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, Area, ResponsiveContainer} from "recharts";
 import { authService } from '@/API/auth';
 import { fetchStatistics } from '@/API/Statistics';
 
 // Assets
 import userclient from '../assets/contacts_product_53.98dp_2196F3_FILL0_wght400_GRAD0_opsz48.png';
 import userowner from '../assets/contacts_product_53.98dp_88417A_FILL0_wght400_GRAD0_opsz48.png';
-import unitPendingIcon from '../assets/pending.svg';
-import unitNewIcon from '../assets/new.svg';
-import unitAcceptedIcon from '../assets/accepted.svg';
+// import unitPendingIcon from '../assets/pending.svg';
+// import unitNewIcon from '../assets/new.svg';
+// import unitAcceptedIcon from '../assets/accepted.svg';
 import '../index.css';
 
 // Mock data for charts
@@ -25,49 +23,33 @@ const chartData = [
   { name: "Sat", clients: 90, businessOwners: 80 },
 ];
 
-const donutChartData = [
-  { name: "وحدات جديدة", value: 300, color: "#00BFFF" },
-  { name: "الوحدات معلقة", value: 150, color: "#88417A" },
-  { name: "الوحدات مقبولة", value: 200, color: "#FFA500" },
-];
 
-const revenueData = [
-  { day: 'Sat', value: 8 },
-  { day: 'Sun', value: 5 },
-  { day: 'Mon', value: 10 },
-  { day: 'Tue', value: 6 },
-  { day: 'Wed', value: 9 },
-  { day: 'Thu', value: 3 },
-  { day: 'Fri', value: 4 },
-];
+// const revenueData = [
+//   { day: 'Sat', value: 8 },
+//   { day: 'Sun', value: 5 },
+//   { day: 'Mon', value: 10 },
+//   { day: 'Tue', value: 6 },
+//   { day: 'Wed', value: 9 },
+//   { day: 'Thu', value: 3 },
+//   { day: 'Fri', value: 4 },
+// ];
 
-const monthlyData = [
-  { day: 'Week 1', value: 35 },
-  { day: 'Week 2', value: 45 },
-  { day: 'Week 3', value: 28 },
-  { day: 'Week 4', value: 50 },
-];
+// const monthlyData = [
+//   { day: 'Week 1', value: 35 },
+//   { day: 'Week 2', value: 45 },
+//   { day: 'Week 3', value: 28 },
+//   { day: 'Week 4', value: 50 },
+// ];
 
-const unitIcons: Record<string, string> = {
-  "وحدات جديدة": unitNewIcon,
-  "الوحدات معلقة": unitPendingIcon,
-  "الوحدات مقبولة": unitAcceptedIcon,
-};
+// const unitIcons: Record<string, string> = {
+//   "وحدات جديدة": unitNewIcon,
+//   "الوحدات معلقة": unitPendingIcon,
+//   "الوحدات مقبولة": unitAcceptedIcon,
+// };
 
-const CustomDonutTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    const { name } = payload[0].payload;
-    return (
-      <div className="rounded-full bg-white shadow-md p-2 border flex items-center justify-center">
-        <img src={unitIcons[name]} alt={name} className="w-8 h-8" />
-      </div>
-    );
-  }
-  return null;
-};
 
 export function ChartAreaInteractive() {
-  const [isWeekly, setIsWeekly] = useState(true);
+  // const [isWeekly, setIsWeekly] = useState(true);
   const [userStats, setUserStats] = useState({
     totalClients: 0,
     totalBusinessOwners: 0,
@@ -83,8 +65,6 @@ export function ChartAreaInteractive() {
     businessOwners: Math.round((day.businessOwners / 750) * userStats.totalBusinessOwners)
   }));
 
-  const displayedData = isWeekly ? revenueData : monthlyData;
-  const title = isWeekly ? "الدخل الأسبوعي" : "الدخل الشهري";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -201,8 +181,7 @@ export function ChartAreaInteractive() {
 
       {/* ROW 2: DONUT + BAR CHART */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full">
-        {/* DONUT CHART */}
-        <div className="bg-white p-4 rounded-lg shadow flex flex-col items-center relative">
+        {/* <div className="bg-white p-4 rounded-lg shadow flex flex-col items-center relative">
           <h3 className="text-lg font-semibold mb-2">الوحدات</h3>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
@@ -239,7 +218,6 @@ export function ChartAreaInteractive() {
           </div>
         </div>
 
-        {/* BAR CHART */}
         <div className="bg-white p-4 rounded-lg shadow flex flex-col items-center justify-between">
           <div className="w-full flex justify-between items-center mb-2">
             <h3 className="text-lg font-semibold">{title}</h3>
@@ -283,7 +261,7 @@ export function ChartAreaInteractive() {
           <button className="bg-[#E3F2FD] text-[#1976D2] font-semibold rounded-md px-4 py-1 mt-2">
             View Details
           </button>
-        </div>
+        </div> */}
       </div>
     </div>
   );
