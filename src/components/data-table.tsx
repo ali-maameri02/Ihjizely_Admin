@@ -458,7 +458,7 @@ export default function UserTable({ data }: { data: UserRow[] }) {
           <div className="flex flex-col">
             <span className="font-medium">{row.original.name}</span>
             <span className="text-sm text-muted-foreground">
-              @{row.original.username}
+              {row.original.username}
             </span>
           </div>
         </div>
@@ -471,8 +471,8 @@ export default function UserTable({ data }: { data: UserRow[] }) {
     },
     {
       accessorKey: "email",
-      header: "البريد الإلكتروني",
-      cell: ({ row }) => <span>{row.original.email}</span>,
+      header: "رقم الهاتف",
+      cell: ({ row }) => <span>{row.original.username}</span>,
     },
     {
       accessorKey: "date",

@@ -1,3 +1,4 @@
+// src/components/Admin/subscription-plans.tsx
 import { useState, lazy, Suspense, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -28,6 +29,7 @@ export interface Plan {
   color: string;
   maxAds?: number;
   duration?: string;
+  durationInDays: number; // Add this required field
   isActive?: boolean;
 }
 
@@ -39,35 +41,58 @@ export default function SubscriptionPlans() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newPlan, setNewPlan] = useState({
     name: '',
-    duration: '1', // Default to 1 hour
+    durationInDays: 1, // Change to number and match API field name
     amount: 0,
     currency: 'LYD',
     maxAds: 0
   });
+  
 
-  // Helper functions for duration handling
-  const formatDurationForDisplay = (duration: string): string => {
-    if (!duration) return "غير محدد";
-    
-    // If it's in HH:MM:SS format
-    if (/^\d{2}:\d{2}:\d{2}$/.test(duration)) {
-      const [hours] = duration.split(':');
-      return `${hours} يوم`;
-    }
-    
-    // If it's just a number
-    return `${duration} ] يوم`;
-  };
+  // Helper function to convert duration string to days
+ // In subscription-plans.tsx, update the convertDurationToDays function:
 
-  const parseDurationInput = (input: string): string => {
-    if (/^\d+$/.test(input)) return `${input}:00:00`;
-    if (/^\d+:\d+$/.test(input)) return `${input}:00`;
-    return input;
-  };
+const convertDurationToDays = (duration: string | number): number => {
+  if (!duration) return 30;
+  
+  // If it's a number, return it directly
+  if (typeof duration === 'number') {
+    return duration;
+  }
+  
+  // If it's a string that's just a number, parse it
+  if (/^\d+$/.test(duration)) {
+    return parseInt(duration);
+  }
+  
+  // If it's in TimeSpan format (like "5.00:00:00" for 5 days)
+  if (/^\d+\.\d{2}:\d{2}:\d{2}$/.test(duration)) {
+    const [days] = duration.split('.');
+    return parseInt(days);
+  }
+  
+  // If it's in HH:MM:SS format, convert to days
+  if (/^\d{2}:\d{2}:\d{2}$/.test(duration)) {
+    const [hours] = duration.split(':').map(Number);
+    return Math.ceil(hours / 24);
+  }
+  
+  return 30;
+};
 
-  const validateDuration = (duration: string): boolean => {
-    return /^(\d{1,3}:)?(\d{1,2}:)?\d{1,2}$/.test(duration);
-  };
+// Update the formatDurationForDisplay function:
+const formatDurationForDisplay = (duration: string | number): string => {
+  const days = convertDurationToDays(duration);
+  
+  if (days === 30) return "شهر";
+  if (days === 90) return "3 أشهر";
+  if (days === 180) return "6 أشهر";
+  if (days === 365) return "سنة";
+  return `${days} يوم`;
+};
+
+
+
+ 
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -76,25 +101,28 @@ export default function SubscriptionPlans() {
         const apiPlans = await subscriptionsService.getAllPlans();
         
         // Transform API plans to match our UI structure
-        const transformedPlans = apiPlans.map(plan => ({
-          id: plan.id,
-          name: plan.name,
-          tagline: getPlanTagline(plan.name),
-          price: plan.amount,
-          currency: plan.currency,
-          period: formatDurationForDisplay(plan.duration),
-          features: [
-            plan.maxAds 
-              ? `يمكنك إضافة ${plan.maxAds} إعلانات`
-              : "عدد غير محدد من الإعلانات",
-            `المدة: ${formatDurationForDisplay(plan.duration)}`
-          ],
-          icon: getPlanIcon(plan.name),
-          color: getPlanColor(plan.name),
-          maxAds: plan.maxAds,
-          duration: plan.duration,
-          isActive: plan.isActive
-        }));
+      // In the fetchPlans function, update the transformation:
+// In the fetchPlans function:
+const transformedPlans = apiPlans.map(plan => ({
+  id: plan.id,
+  name: plan.name,
+  tagline: getPlanTagline(plan.name),
+  price: plan.amount,
+  currency: plan.currency,
+  period: formatDurationForDisplay(plan.duration), // Use the returned duration
+  features: [
+    plan.maxAds 
+      ? `يمكنك إضافة ${plan.maxAds} إعلانات`
+      : "عدد غير محدد من الإعلانات",
+    `المدة: ${formatDurationForDisplay(plan.duration)}` // Use the returned duration
+  ],
+  icon: getPlanIcon(plan.name),
+  color: getPlanColor(plan.name),
+  maxAds: plan.maxAds,
+  duration: plan.duration,
+  durationInDays: convertDurationToDays(plan.duration), // Convert the returned duration to days
+  isActive: plan.isActive
+}));
         
         setPlans(transformedPlans);
         if (transformedPlans.length > 0) {
@@ -136,76 +164,84 @@ export default function SubscriptionPlans() {
       default: return "bg-gradient-to-r from-purple-400 to-purple-600";
     }
   };
-
-  const handleUpdatePlan = async (updatedPlan: Plan) => {
+  const handleDeletePlan = async (planId: string) => {
     try {
-      const { id, name, duration, price, currency, maxAds } = updatedPlan;
-      await subscriptionsService.updatePlan(id, {
-        name,
-        duration,
-        amount: price,
-        currency,
-        maxAds
-      });
-      
-      setPlans(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
-      toast.success("تم تحديث الخطة بنجاح");
+      await subscriptionsService.deletePlan(planId);
+      setPlans(prev => prev.filter(p => p.id !== planId));
+      toast.success("تم حذف الخطة بنجاح");
     } catch (error) {
-      toast.error('فشل تحديث الخطة');
+      toast.error('فشل حذف الخطة');
     }
   };
-
-  const handleCreatePlan = async () => {
-    try {
-      if (!validateDuration(newPlan.duration)) {
-        toast.error('صيغة المدة غير صالحة. استخدم التنسيق DD:HH:MM');
-        return;
-      }
-
-      setIsLoading(true);
-      const parsedDuration = parseDurationInput(newPlan.duration);
-      const createdPlan = await subscriptionsService.createPlan({
-        ...newPlan,
-        duration: parsedDuration
-      });
-      
-      const transformedPlan = {
-        id: createdPlan.id,
-        name: createdPlan.name,
-        tagline: getPlanTagline(createdPlan.name),
-        price: createdPlan.amount,
-        currency: createdPlan.currency,
-        period: formatDurationForDisplay(createdPlan.duration),
-        features: [
-          createdPlan.maxAds 
-            ? `يمكنك إضافة ${createdPlan.maxAds} إعلانات`
-            : "عدد غير محدد من الإعلانات",
-          `المدة: ${formatDurationForDisplay(createdPlan.duration)}`
-        ],
-        icon: getPlanIcon(createdPlan.name),
-        color: getPlanColor(createdPlan.name),
-        maxAds: createdPlan.maxAds,
-        duration: createdPlan.duration,
-        isActive: true
-      };
-      
-      setPlans(prev => [...prev, transformedPlan]);
-      setIsCreateDialogOpen(false);
-      setNewPlan({
-        name: '',
-        duration: '1',
-        amount: 0,
-        currency: 'LYD',
-        maxAds: 0
-      });
-      toast.success("تم إنشاء الخطة بنجاح");
-    } catch (error) {
-      toast.error('فشل إنشاء الخطة');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
+ // Update the handleCreatePlan function:
+const handleCreatePlan = async () => {
+  try {
+    setIsLoading(true);
+    
+    const createdPlan = await subscriptionsService.createPlan({
+      name: newPlan.name,
+      durationInDays: newPlan.durationInDays,
+      amount: newPlan.amount,
+      currency: newPlan.currency,
+      maxAds: newPlan.maxAds
+    });
+    
+    const transformedPlan = {
+      id: createdPlan.id,
+      name: createdPlan.name,
+      tagline: getPlanTagline(createdPlan.name),
+      price: createdPlan.amount,
+      currency: createdPlan.currency,
+      period: formatDurationForDisplay(createdPlan.duration), // Use the returned duration
+      features: [
+        createdPlan.maxAds 
+          ? `يمكنك إضافة ${createdPlan.maxAds} إعلانات`
+          : "عدد غير محدد من الإعلانات",
+        `المدة: ${formatDurationForDisplay(createdPlan.duration)}` // Use the returned duration
+      ],
+      icon: getPlanIcon(createdPlan.name),
+      color: getPlanColor(createdPlan.name),
+      maxAds: createdPlan.maxAds,
+      duration: createdPlan.duration,
+      durationInDays: convertDurationToDays(createdPlan.duration), // Convert the returned duration to days
+      isActive: true
+    };
+    
+    setPlans(prev => [...prev, transformedPlan]);
+    setIsCreateDialogOpen(false);
+    setNewPlan({
+      name: '',
+      durationInDays: 1,
+      amount: 0,
+      currency: 'LYD',
+      maxAds: 0
+    });
+    toast.success("تم إنشاء الخطة بنجاح");
+  } catch (error) {
+    toast.error('فشل إنشاء الخطة');
+  } finally {
+    setIsLoading(false);
+  }
+};
+// Update the handleUpdatePlan function:
+const handleUpdatePlan = async (updatedPlan: Plan) => {
+  try {
+    const { id, name, price, currency, maxAds, durationInDays } = updatedPlan;
+    
+    await subscriptionsService.updatePlan(id, {
+      name,
+      durationInDays, // Send as number
+      amount: price,
+      currency,
+      maxAds
+    });
+    
+    setPlans(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+    toast.success("تم تحديث الخطة بنجاح");
+  } catch (error) {
+    toast.error('فشل تحديث الخطة');
+  }
+};
   const handleSelectPlan = (planId: string) => {
     setSelectedPlan(planId);
   };
@@ -279,19 +315,20 @@ export default function SubscriptionPlans() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       المدة (أيام)
-                      <span className="text-xs text-gray-500 block">أدخل عدد الأيام </span>
+                      <span className="text-xs text-gray-500 block">أدخل عدد الأيام (1-365)</span>
                     </label>
                     <input
-                      type="number"
-                      min="1"
-                      value={newPlan.duration}
-                      onChange={(e) => {
-                        const value = Math.min(365, Math.max(1, parseInt(e.target.value) || 1));
-                        setNewPlan({...newPlan, duration: value.toString()});
-                      }}
-                      className="w-full p-2 border rounded"
-                      placeholder="أدخل عدد الساعات"
-                    />
+  type="number"
+  min="1"
+  max="365"
+  value={newPlan.durationInDays}
+  onChange={(e) => {
+    const value = Math.min(365, Math.max(1, parseInt(e.target.value) || 1));
+    setNewPlan({...newPlan, durationInDays: value});
+  }}
+  className="w-full p-2 border rounded"
+  placeholder="أدخل عدد الأيام"
+/>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">السعر</label>
@@ -335,7 +372,7 @@ export default function SubscriptionPlans() {
                   </Button>
                   <Button 
                     onClick={handleCreatePlan} 
-                    disabled={!newPlan.name || !newPlan.duration || !newPlan.amount}
+                    disabled={!newPlan.name || !newPlan.durationInDays || !newPlan.amount}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     حفظ الخطة
@@ -353,16 +390,17 @@ export default function SubscriptionPlans() {
         ))}
       </div>}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {plans.map(plan => (
-            <PlanCard 
-              key={plan.id}
-              plan={plan}
-              isSelected={selectedPlan === plan.id}
-              isAdmin={true}
-              onSelect={handleSelectPlan}
-              onUpdate={handleUpdatePlan}
-            />
-          ))}
+        {plans.map(plan => (
+  <PlanCard 
+    key={plan.id}
+    plan={plan}
+    isSelected={selectedPlan === plan.id}
+    isAdmin={true}
+    onSelect={handleSelectPlan}
+    onUpdate={handleUpdatePlan}
+    onDelete={handleDeletePlan} // Add this prop
+  />
+))}
         </div>
       </Suspense>
 

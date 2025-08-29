@@ -4,11 +4,11 @@ import { authService } from './auth';
 export type SubscriptionPlan = {
   id: string;
   name: string;
-  duration: string;
+  duration: string; // Backend returns this as TimeSpan
   amount: number;
   currency: string;
   isActive: boolean;
-  maxAds?: number;  // Add this line
+  maxAds?: number;
 };
 
 export type Subscription = {
@@ -163,90 +163,90 @@ export const subscriptionsService = {
   },
   
 // In SubscriptionsService.tsx, update the createPlan method:
-async createPlan(newPlan: {
-    name: string;
-    duration: string; // Will be in "HH:mm:ss" format
-    amount: number;
-    currency: string;
-    maxAds?: number;
-  }): Promise<SubscriptionPlan> {
-    try {
-      const token = authService.getAuthToken();
-      if (!token) throw new Error('No authentication token found');
-      
-      // Convert days to hours (since backend expects time format)
-      const durationInHours = this.convertDaysToTimeFormat(newPlan.duration);
-      
-      const response = await axios.post<SubscriptionPlan>(
-        `${import.meta.env.VITE_API_URL}/Subscriptions/plans`,
-        {
-          ...newPlan,
-          duration: durationInHours
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      return response.data;
-    } catch (error) {
-      throw this.handleApiError(error, 'Failed to create plan');
-    }
-  },
-  
-  // Add this helper method
-   convertDaysToTimeFormat(duration: string): string {
-    // If it's just a number, treat as hours
-    if (/^\d+$/.test(duration)) {
-      const hours = Math.min(23, parseInt(duration));
-      return `${hours.toString().padStart(2, '0')}:00:00`;
-    }
-    
-    // If it's in HH:MM:SS format already, return as-is
-    if (/^\d{2}:\d{2}:\d{2}$/.test(duration)) {
-      return duration;
-    }
-    
-    // Default to 1 hour if invalid format
-    return '01:00:00';
-  },
+// In SubscriptionsService.tsx, update the createPlan and updatePlan methods:
 
-  async updatePlan(planId: string, updates: {
-    name?: string;
-    duration?: string;
-    amount?: number;
-    currency?: string;
-    maxAds?: number;
-  }): Promise<SubscriptionPlan> {
-    try {
-      const token = authService.getAuthToken();
-      if (!token) throw new Error('No authentication token found');
-      
-      // Create full plan object including planId
-      const requestBody = {
-        planId: planId,
-        ...updates
-      };
-      
-      const response = await axios.patch<SubscriptionPlan>(
-        `${import.meta.env.VITE_API_URL}/Subscriptions/plans/${planId}`,
-        requestBody,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+// Update the createPlan method:
+async createPlan(newPlan: {
+  name: string;
+  durationInDays: number; // Change to number
+  amount: number;
+  currency: string;
+  maxAds?: number;
+}): Promise<SubscriptionPlan> {
+  try {
+    const token = authService.getAuthToken();
+    if (!token) throw new Error('No authentication token found');
+    
+    const response = await axios.post<SubscriptionPlan>(
+      `${import.meta.env.VITE_API_URL}/Subscriptions/plans`,
+      newPlan, // Send the object directly as it matches the API schema
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      );
-      
-      return response.data;
-    } catch (error) {
-      throw this.handleApiError(error, 'Failed to update plan');
-    }
+      }
+    );
+    
+    return response.data;
+  } catch (error) {
+    throw this.handleApiError(error, 'Failed to create plan');
   }
+},
+
+// Update the updatePlan method:
+async updatePlan(planId: string, updates: {
+  name?: string;
+  durationInDays?: number;
+  amount?: number;
+  currency?: string;
+  maxAds?: number;
+}): Promise<SubscriptionPlan> {
+  try {
+    const token = authService.getAuthToken();
+    if (!token) throw new Error('No authentication token found');
+    
+    // Create full plan object including planId as required by API
+    const requestBody = {
+      planId: planId, // Include planId as required by PATCH endpoint
+      ...updates
+    };
+    
+    const response = await axios.patch<SubscriptionPlan>(
+      `${import.meta.env.VITE_API_URL}/Subscriptions/plans/${planId}`,
+      requestBody,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    return response.data;
+  } catch (error) {
+    throw this.handleApiError(error, 'Failed to update plan');
+  }
+},
+// Add this method to the subscriptionsService object in SubscriptionsService.tsx
+async deletePlan(planId: string): Promise<void> {
+  try {
+    const token = authService.getAuthToken();
+    if (!token) throw new Error('No authentication token found');
+    
+    await axios.delete(
+      `${import.meta.env.VITE_API_URL}/Subscriptions/plans/${planId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      }
+    );
+  } catch (error) {
+    throw this.handleApiError(error, 'Failed to delete plan');
+  }
+}
 };
 
 
