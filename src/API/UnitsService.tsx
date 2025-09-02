@@ -327,10 +327,10 @@ export const unitsService = {
             'HotelRoom': 'غرف فندقية',
             'HotelApartment': 'شقق فندقية',
             'Resort': 'منتجعات',
-            'RestHouse': 'بيوت ريفية',
+            'RestHouse': 'إستراحات',
             'EventHallSmall': 'قاعة أحداث صغيرة',
             'EventHallLarge': 'قاعة أحداث كبيرة',
-            'Meeting Room': 'غرفة اجتماعات'
+            'Meeting Room': 'كافيهات'
         };
         return subtypeMap[subtype] || subtype;
     }

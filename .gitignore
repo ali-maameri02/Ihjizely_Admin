@@ -138,3 +138,19 @@ dist-ssr/
 *.local
 # Local Netlify folder
 .netlify
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.git/
+.gitignore
+README.md
+dist/
+build/
+.DS_Store
+*.log
+.env
+.env.local
+.env.production
+.vscode/
+.idea/
